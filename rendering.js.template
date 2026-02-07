@@ -1,0 +1,616 @@
+/**
+ * Brawlers Tavern - Rendering Functions
+ * Add this content to app.js or include as separate rendering.js file
+ */
+
+// Add to index.html before </body>:
+// <script src="rendering.js"></script>
+
+// BRAWLERS GRID
+function renderBrawlers() {
+    const grid = document.getElementById('brawlers-grid');
+    const filteredUsers = usersData.filter(u => {
+        const rep = u['stats.reputation'] || 0;
+        const brawls = u['stats.brawl.brawls'] || 0;
+        const teamBrawls = u['stats.teamBrawl.brawls'] || 0;
+        return rep > 0 || brawls > 0 || teamBrawls > 0;
+    });
+
+    if (filteredUsers.length === 0) {
+        grid.innerHTML = '<div class="no-data">No brawlers found</div>';
+        return;
+    }
+
+    grid.innerHTML = filteredUsers.map(player => {
+        const reputation = player['stats.reputation'] || 0;
+        const repTitle = getReputationTitle(reputation);
+        const repLevel = getReputationLevel(reputation);
+        
+        const brawlRating = player['stats.brawl.rating'] || 0;
+        const brawlBrawls = player['stats.brawl.brawls'] || 0;
+        const brawlRank = brawlBrawls >= 25 ? getRankInfo(brawlRating) : null;
+        
+        const teamRating = player['stats.teamBrawl.rating'] || 0;
+        const teamBrawls = player['stats.teamBrawl.brawls'] || 0;
+        const teamRank = teamBrawls >= 25 ? getRankInfo(teamRating) : null;
+
+        let guildHTML = '';
+        const guildRef = player.currentGuildRef;
+        if (guildRef && guildRef !== 'NaN' && guildMap[guildRef]) {
+            const guild = guildMap[guildRef];
+            guildHTML = `
+                <div class="brawler-guild" onclick="event.stopPropagation(); showGuildModal('${guildRef}')">
+                    <span>${guild.name}</span>
+                    <span class="guild-tag">${guild.tag}</span>
+                </div>
+            `;
+        }
+
+        const brawlScore = calculateBrawlScore(player);
+        const brawlScoreBadge = brawlScore !== null ? `
+            <div class="stat-item">
+                <div class="stat-label">Brawl Score</div>
+                <div class="stat-value"><span class="score-badge">${brawlScore.toFixed(1)}/10</span></div>
+            </div>
+        ` : '';
+
+        return `
+            <div class="brawler-card" onclick="showPlayerModal('${player.username}')">
+                <div class="brawler-header">
+                    <div class="brawler-avatar">
+                        ${createHeadAvatar(player)}
+                    </div>
+                    <div class="brawler-info">
+                        <div class="brawler-username">${player.username}</div>
+                        <div class="brawler-nickname">${player.nickname || ''}</div>
+                        ${guildHTML}
+                    </div>
+                </div>
+                <div class="brawler-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">Reputation</div>
+                        <div class="stat-value">${repTitle} - Lvl. ${repLevel}</div>
+                    </div>
+                    ${brawlRank ? `
+                        <div class="stat-item">
+                            <div class="stat-label">Brawl Rating</div>
+                            <div class="stat-value">
+                                <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                ${brawlRank.rank}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${teamRank ? `
+                        <div class="stat-item">
+                            <div class="stat-label">Team Rating</div>
+                            <div class="stat-value">
+                                <img src="https://cdn.brawlerstavern.com/rankicon/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                ${teamRank.rank}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${brawlScoreBadge}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// SOLO LEADERBOARD
+function renderSoloLeaderboard() {
+    const container = document.getElementById('solo-table-container');
+    const eligible = usersData.filter(u => (u['stats.brawl.brawls'] || 0) >= 25);
+    const sorted = eligible.sort((a, b) => (b['stats.brawl.rating'] || 0) - (a['stats.brawl.rating'] || 0));
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="no-data">No eligible players (25+ brawls required)</div>';
+        return;
+    }
+
+    const rows = sorted.map((player, index) => {
+        const rank = index + 1;
+        const rating = player['stats.brawl.rating'] || 0;
+        const rankInfo = getRankInfo(rating);
+        const wins = player['stats.brawl.wins'] || 0;
+        const brawls = player['stats.brawl.brawls'] || 0;
+        const winRate = brawls > 0 ? ((wins / brawls) * 100).toFixed(1) : '0.0';
+        const brawlScore = calculateBrawlScore(player);
+        
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        return `
+            <tr onclick="showPlayerModal('${player.username}')">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td class="player-cell">
+                    <div class="player-avatar-small">
+                        ${createHeadAvatar(player)}
+                    </div>
+                    <div class="player-name">
+                        <span class="player-username">${player.username}</span>
+                        <span class="player-nickname">${player.nickname || ''}</span>
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
+                    </div>
+                </td>
+                <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
+                <td>${wins} / ${brawls}</td>
+                <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
+                <td><span class="score-badge">${brawlScore !== null ? brawlScore.toFixed(1) : 'N/A'}</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Brawler</th>
+                    <th>Tier</th>
+                    <th>Rating</th>
+                    <th>Record</th>
+                    <th>Win Rate</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+// TEAM LEADERBOARD  
+function renderTeamLeaderboard() {
+    const container = document.getElementById('team-table-container');
+    const eligible = usersData.filter(u => (u['stats.teamBrawl.brawls'] || 0) >= 25);
+    const sorted = eligible.sort((a, b) => (b['stats.teamBrawl.rating'] || 0) - (a['stats.teamBrawl.rating'] || 0));
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="no-data">No eligible players (25+ team brawls required)</div>';
+        return;
+    }
+
+    const rows = sorted.map((player, index) => {
+        const rank = index + 1;
+        const rating = player['stats.teamBrawl.rating'] || 0;
+        const rankInfo = getRankInfo(rating);
+        const wins = player['stats.teamBrawl.wins'] || 0;
+        const brawls = player['stats.teamBrawl.brawls'] || 0;
+        const winRate = brawls > 0 ? ((wins / brawls) * 100).toFixed(1) : '0.0';
+        
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        return `
+            <tr onclick="showPlayerModal('${player.username}')">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td class="player-cell">
+                    <div class="player-avatar-small">
+                        ${createHeadAvatar(player)}
+                    </div>
+                    <div class="player-name">
+                        <span class="player-username">${player.username}</span>
+                        <span class="player-nickname">${player.nickname || ''}</span>
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
+                    </div>
+                </td>
+                <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
+                <td>${wins} / ${brawls}</td>
+                <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Brawler</th>
+                    <th>Tier</th>
+                    <th>Rating</th>
+                    <th>Record</th>
+                    <th>Win Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows}
+            </tbody>
+        </table>
+    `;
+}
+
+// CTF LEADERBOARD
+function renderCTFLeaderboard(tab = 'winrate') {
+    const container = document.getElementById('ctf-table-container');
+    const eligible = usersData.filter(u => (u['stats.event.ctf.games'] || 0) >= 20).map(player => {
+        return { player, scores: calculateCTFScores(player) };
+    }).filter(item => item.scores !== null);
+
+    if (eligible.length === 0) {
+        container.innerHTML = '<div class="no-data">No CTF data available (20+ games required)</div>';
+        return;
+    }
+
+    // Sort based on tab
+    let sorted = [...eligible];
+    if (tab === 'overall') sorted.sort((a, b) => b.scores.overall - a.scores.overall);
+    else if (tab === 'offensive') sorted.sort((a, b) => b.scores.offensive - a.scores.offensive);
+    else if (tab === 'defensive') sorted.sort((a, b) => b.scores.defensive - a.scores.defensive);
+    else if (tab === 'winrate') sorted.sort((a, b) => b.scores.winRate - a.scores.winRate);
+    else if (tab === 'all') sorted.sort((a, b) => b.scores.winRate - a.scores.winRate);
+
+    const rows = sorted.map((item, index) => {
+        const { player, scores } = item;
+        const rank = index + 1;
+        const winRate = (scores.winRate * 100).toFixed(1);
+        
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        if (tab === 'all') {
+            return `
+                <tr onclick="showPlayerModal('${player.username}')">
+                    <td class="rank-cell ${rankClass}">${rank}</td>
+                    <td class="player-cell">
+                        <div class="player-avatar-small">${createHeadAvatar(player)}</div>
+                        <div class="player-name">
+                            <span class="player-username">${player.username}</span>
+                            <span class="player-nickname">${player.nickname || ''}</span>
+                        </div>
+                    </td>
+                    <td><span class="score-badge">${scores.overall.toFixed(1)}</span></td>
+                    <td><span class="score-badge">${scores.offensive.toFixed(1)}</span></td>
+                    <td><span class="score-badge">${scores.defensive.toFixed(1)}</span></td>
+                    <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
+                    <td>${scores.capturesPerGame.toFixed(2)}</td>
+                    <td>${scores.chargesPerGame.toFixed(2)}</td>
+                    <td>${scores.defensesPerGame.toFixed(2)}</td>
+                    <td>${scores.escortsPerGame.toFixed(2)}</td>
+                    <td>${scores.recoversPerGame.toFixed(2)}</td>
+                    <td>${scores.wins}/${scores.games}</td>
+                </tr>
+            `;
+        } else {
+            return `
+                <tr onclick="showPlayerModal('${player.username}')">
+                    <td class="rank-cell ${rankClass}">${rank}</td>
+                    <td class="player-cell">
+                        <div class="player-avatar-small">${createHeadAvatar(player)}</div>
+                        <div class="player-name">
+                            <span class="player-username">${player.username}</span>
+                            <span class="player-nickname">${player.nickname || ''}</span>
+                        </div>
+                    </td>
+                    ${tab === 'overall' ? `<td><span class="score-badge">${scores.overall.toFixed(1)}/10</span></td>` : ''}
+                    ${tab === 'offensive' ? `<td><span class="score-badge">${scores.offensive.toFixed(1)}/10</span></td>` : ''}
+                    ${tab === 'defensive' ? `<td><span class="score-badge">${scores.defensive.toFixed(1)}/10</span></td>` : ''}
+                    ${tab === 'winrate' ? `<td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>` : ''}
+                    <td>${scores.wins} / ${scores.games}</td>
+                </tr>
+            `;
+        }
+    }).join('');
+
+    let headers = '';
+    if (tab === 'all') {
+        headers = '<th>Rank</th><th>Brawler</th><th>Overall</th><th>Offensive</th><th>Defensive</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Def/g</th><th>Escorts/g</th><th>Rec/g</th><th>Record</th>';
+    } else if (tab === 'overall') {
+        headers = '<th>Rank</th><th>Brawler</th><th>Overall Score</th><th>Record</th>';
+    } else if (tab === 'offensive') {
+        headers = '<th>Rank</th><th>Brawler</th><th>Offensive Score</th><th>Record</th>';
+    } else if (tab === 'defensive') {
+        headers = '<th>Rank</th><th>Brawler</th><th>Defensive Score</th><th>Record</th>';
+    } else if (tab === 'winrate') {
+        headers = '<th>Rank</th><th>Brawler</th><th>Win Rate</th><th>Record</th>';
+    }
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead><tr>${headers}</tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// TRAITS LEADERBOARD
+function renderTraitsLeaderboard(filter = '') {
+    const container = document.getElementById('traits-table-container');
+    let eligible = usersData.filter(u => (u['stats.brawl.brawls'] || 0) >= 25);
+
+    // Apply filter
+    if (filter.startsWith('trait:')) {
+        const trait = filter.replace('trait:', '');
+        eligible = eligible.filter(player => {
+            const analysis = calculateTraits(player);
+            return analysis.traits.includes(trait);
+        });
+    } else if (filter.startsWith('style:')) {
+        const style = filter.replace('style:', '');
+        eligible = eligible.filter(player => {
+            const analysis = calculateTraits(player);
+            return analysis.styles.includes(style);
+        });
+    }
+
+    if (eligible.length === 0) {
+        container.innerHTML = '<div class="no-data">No brawlers match this filter</div>';
+        return;
+    }
+
+    // Sort by Brawl Score
+    eligible.sort((a, b) => (calculateBrawlScore(b) || 0) - (calculateBrawlScore(a) || 0));
+
+    const rows = eligible.map((player, index) => {
+        const rank = index + 1;
+        const brawlScore = calculateBrawlScore(player);
+        const analysis = calculateTraits(player);
+        const rating = player['stats.brawl.rating'] || 0;
+        const rankInfo = getRankInfo(rating);
+        
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        return `
+            <tr onclick="showPlayerModal('${player.username}')">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td class="player-cell">
+                    <div class="player-avatar-small">${createHeadAvatar(player)}</div>
+                    <div class="player-name">
+                        <span class="player-username">${player.username}</span>
+                        <span class="player-nickname">${player.nickname || ''}</span>
+                    </div>
+                </td>
+                <td><span class="score-badge">${brawlScore !== null ? brawlScore.toFixed(1) : 'N/A'}/10</span></td>
+                <td>
+                    <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    ${rankInfo.rank}
+                </td>
+                <td style="font-size: 0.9rem;">${analysis.traits.join(', ') || 'None'}</td>
+                <td style="font-size: 0.9rem;">${analysis.styles.join(', ') || 'None'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Brawler</th>
+                    <th>Brawl Score</th>
+                    <th>Tier</th>
+                    <th>Combat Traits</th>
+                    <th>Fighting Styles</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// GUILD LEADERBOARD
+function renderGuildLeaderboard() {
+    const container = document.getElementById('guild-table-container');
+    const guildStats = {};
+
+    // Calculate guild reputation totals
+    usersData.forEach(player => {
+        Object.keys(player).forEach(key => {
+            if (key.startsWith('stats.guildReputation.')) {
+                const guildTag = key.replace('stats.guildReputation.', '');
+                const rep = player[key] || 0;
+                if (rep > 0) {
+                    if (!guildStats[guildTag]) {
+                        guildStats[guildTag] = { tag: guildTag, totalRep: 0, members: 0 };
+                    }
+                    guildStats[guildTag].totalRep += rep;
+                    guildStats[guildTag].members++;
+                }
+            }
+        });
+    });
+
+    const sorted = Object.values(guildStats).sort((a, b) => b.totalRep - a.totalRep);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="no-data">No guild data available</div>';
+        return;
+    }
+
+    const rows = sorted.map((guild, index) => {
+        const rank = index + 1;
+        const avgRep = guild.members > 0 ? (guild.totalRep / guild.members).toFixed(0) : 0;
+        
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        // Find guild name from guildMap
+        let guildName = guild.tag;
+        let guildRef = '';
+        Object.entries(guildMap).forEach(([ref, data]) => {
+            if (data.tag === guild.tag) {
+                guildName = data.name;
+                guildRef = ref;
+            }
+        });
+
+        return `
+            <tr onclick="${guildRef ? `showGuildModal('${guildRef}')` : ''}">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <span style="font-family: 'Cinzel', serif; font-size: 1.2rem; color: var(--accent-gold); font-weight: 700;">${guildName}</span>
+                        <span class="guild-tag">${guild.tag}</span>
+                    </div>
+                </td>
+                <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${guild.totalRep.toLocaleString()}</td>
+                <td>${guild.members}</td>
+                <td style="color: var(--text-secondary);">${avgRep}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Guild</th>
+                    <th>Total Reputation</th>
+                    <th>Members</th>
+                    <th>Avg Rep/Member</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+}
+
+// PLAYER MODAL
+function showPlayerModal(username) {
+    const player = usersData.find(u => u.username === username);
+    if (!player) return;
+
+    const modal = document.getElementById('player-modal');
+    document.getElementById('modal-avatar').innerHTML = createHeadAvatar(player);
+    document.getElementById('modal-username').textContent = player.username;
+    document.getElementById('modal-nickname').textContent = player.nickname || '';
+
+    // Guild
+    const guildRef = player.currentGuildRef;
+    if (guildRef && guildRef !== 'NaN' && guildMap[guildRef]) {
+        const guild = guildMap[guildRef];
+        document.getElementById('modal-guild').innerHTML = `
+            <span>${guild.name}</span>
+            <span class="guild-tag">${guild.tag}</span>
+        `;
+        document.getElementById('modal-guild').onclick = (e) => {
+            e.stopPropagation();
+            closePlayerModal();
+            showGuildModal(guildRef);
+        };
+    } else {
+        document.getElementById('modal-guild').innerHTML = '';
+    }
+
+    // Stats
+    const reputation = player['stats.reputation'] || 0;
+    const repTitle = getReputationTitle(reputation);
+    const repLevel = getReputationLevel(reputation);
+    const brawlScore = calculateBrawlScore(player);
+    
+    let statsHTML = `
+        <div class="modal-stat-card">
+            <div class="modal-stat-label">Reputation</div>
+            <div class="modal-stat-value">${repTitle} - Lvl. ${repLevel}</div>
+        </div>
+    `;
+
+    if (brawlScore !== null) {
+        statsHTML += `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Brawl Score</div>
+                <div class="modal-stat-value"><span class="score-badge">${brawlScore.toFixed(1)}/10</span></div>
+            </div>
+        `;
+    }
+
+    // Add more stats...
+    const brawlBrawls = player['stats.brawl.brawls'] || 0;
+    if (brawlBrawls >= 25) {
+        const brawlRating = player['stats.brawl.rating'] || 0;
+        const brawlRank = getRankInfo(brawlRating);
+        statsHTML += `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Solo Rating</div>
+                <div class="modal-stat-value">
+                    <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    ${brawlRank.rank} (${Math.round(brawlRating)})
+                </div>
+            </div>
+        `;
+    }
+
+    document.getElementById('modal-stats').innerHTML = statsHTML;
+
+    // Traits
+    const analysis = calculateTraits(player);
+    document.getElementById('modal-traits').innerHTML = analysis.traits.length > 0
+        ? analysis.traits.map(t => `<div class="trait-badge">${t}</div>`).join('')
+        : '<div class="no-data" style="padding: 1rem;">No traits calculated yet</div>';
+    
+    document.getElementById('modal-styles').innerHTML = analysis.styles.length > 0
+        ? analysis.styles.map(s => `<div class="style-badge">${s}</div>`).join('')
+        : '<div class="no-data" style="padding: 1rem;">No styles calculated yet</div>';
+
+    // CTF
+    const ctfGames = player['stats.event.ctf.games'] || 0;
+    if (ctfGames > 0) {
+        const ctfScores = calculateCTFScores(player);
+        if (ctfScores) {
+            document.getElementById('modal-ctf').innerHTML = `
+                <div class="modal-stat-card">
+                    <div class="modal-stat-label">CTF Overall</div>
+                    <div class="modal-stat-value"><span class="score-badge">${ctfScores.overall.toFixed(1)}/10</span></div>
+                </div>
+                <div class="modal-stat-card">
+                    <div class="modal-stat-label">Offensive</div>
+                    <div class="modal-stat-value"><span class="score-badge">${ctfScores.offensive.toFixed(1)}/10</span></div>
+                </div>
+                <div class="modal-stat-card">
+                    <div class="modal-stat-label">Defensive</div>
+                    <div class="modal-stat-value"><span class="score-badge">${ctfScores.defensive.toFixed(1)}/10</span></div>
+                </div>
+            `;
+        }
+    } else {
+        document.getElementById('modal-ctf').innerHTML = '<div class="no-data" style="padding: 1rem;">No CTF games played</div>';
+    }
+
+    modal.classList.add('active');
+}
+
+// GUILD MODAL
+function showGuildModal(guildRef) {
+    const guild = guildMap[guildRef];
+    if (!guild) return;
+
+    document.getElementById('guild-modal-name').textContent = guild.name;
+    document.getElementById('guild-modal-tag').textContent = `[${guild.tag}]`;
+    document.getElementById('guild-modal-description').textContent = guild.description || guild.motd || '';
+
+    const membersHTML = guild.members.map(member => `
+        <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">
+            <div style="font-family: 'Cinzel', serif; font-weight: 600; color: var(--accent-gold); margin-bottom: 0.5rem;">${member.username}</div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                Rep: ${member.reputation || 0}
+                ${member.brawlRating > 0 ? `<br>Brawl: ${Math.round(member.brawlRating)}` : ''}
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('guild-members-container').innerHTML = membersHTML;
+    document.getElementById('guild-modal').classList.add('active');
+}

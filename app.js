@@ -690,11 +690,11 @@ function makeTablesSortable() {
                 const tbody = table.querySelector('tbody');
                 const rows = Array.from(tbody.querySelectorAll('tr'));
 
-                // Determine sort direction
+                // Determine sort direction (default to descending on first click)
                 const currentDirection = header.getAttribute('data-sort-dir') || 'none';
-                let newDirection = 'asc';
-                if (currentDirection === 'asc') newDirection = 'desc';
-                else if (currentDirection === 'desc') newDirection = 'asc';
+                let newDirection = 'desc';
+                if (currentDirection === 'desc') newDirection = 'asc';
+                else if (currentDirection === 'asc') newDirection = 'desc';
 
                 // Clear all sort indicators
                 headers.forEach(h => {
@@ -1000,7 +1000,7 @@ function renderSoloLeaderboard() {
                 <td data-rating="${rating}">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
-                        <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
+                        <span style="color: var(--accent-gold); font-family: 'Source Sans 3', sans-serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
                 <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
@@ -1081,7 +1081,7 @@ function renderTeamLeaderboard() {
                 <td data-rating="${rating}">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
-                        <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
+                        <span style="color: var(--accent-gold); font-family: 'Source Sans 3', sans-serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
                 <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
@@ -1406,7 +1406,7 @@ function renderGuildLeaderboard() {
                 <td class="rank-cell ${rankClass}">${rank}</td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 1rem;">
-                        <span style="font-family: 'Cinzel', serif; font-size: 1.2rem; color: var(--accent-gold); font-weight: 700;">${guildName}</span>
+                        <span style="font-family: 'Source Sans 3', sans-serif; font-size: 1.2rem; color: var(--accent-gold); font-weight: 700;">${guildName}</span>
                         <span class="guild-tag">${guild.tag}</span>
                     </div>
                 </td>
@@ -1609,7 +1609,7 @@ function showGuildModal(guildRef) {
 
     const membersHTML = guild.members.map(member => `
         <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">
-            <div style="font-family: 'Cinzel', serif; font-weight: 600; color: var(--accent-gold); margin-bottom: 0.5rem;">${member.username}</div>
+            <div style="font-family: 'Source Sans 3', sans-serif; font-weight: 600; color: var(--accent-gold); margin-bottom: 0.5rem;">${member.username}</div>
             <div style="font-size: 0.9rem; color: var(--text-secondary);">
                 Guild Rep: ${member.guildReputation || 0}
             </div>

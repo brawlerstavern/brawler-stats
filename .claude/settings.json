@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python process_data.py:*)"
+    ]
+  }
+}

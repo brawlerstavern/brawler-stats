@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(curl:*)",
+      "Bash(python update.py:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(python:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(git --version:*)",
+      "Bash(gh:*)",
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:fonts.googleapis.com)"
+    ]
+  }
+}

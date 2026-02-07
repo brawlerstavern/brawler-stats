@@ -257,7 +257,7 @@ body {
 }
 
 .brawler-username {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.3rem;
     font-weight: 700;
     color: var(--accent-gold);
@@ -290,7 +290,7 @@ body {
     color: var(--text-primary);
     padding: 0.2rem 0.5rem;
     border-radius: 3px;
-    font-family: 'MedievalSharp', cursive;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 0.8rem;
 }
 
@@ -317,7 +317,7 @@ body {
 }
 
 .stat-value {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--accent-gold);
@@ -407,7 +407,7 @@ body {
 }
 
 .leaderboard-table th {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     text-transform: uppercase;
     letter-spacing: 1px;
     padding: 1rem;
@@ -436,7 +436,7 @@ body {
 }
 
 .rank-cell {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent-gold);
@@ -482,7 +482,7 @@ body {
 }
 
 .player-username {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-weight: 600;
     color: var(--accent-gold);
     font-size: 1.1rem;
@@ -558,7 +558,7 @@ body {
 }
 
 .modal-player-info h2 {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 2.5rem;
     font-weight: 900;
     color: var(--text-primary);
@@ -624,7 +624,7 @@ body {
 }
 
 .modal-stat-value {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent-gold);
@@ -638,7 +638,7 @@ body {
 }
 
 .traits-section h3, .styles-section h3 {
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.5rem;
     color: var(--accent-gold);
     margin-bottom: 1rem;
@@ -656,7 +656,8 @@ body {
     color: var(--text-primary);
     padding: 0.6rem 1.2rem;
     border-radius: 20px;
-    font-family: 'MedievalSharp', cursive;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 700;
     font-size: 0.9rem;
     border: 2px solid var(--accent-gold);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
@@ -706,7 +707,7 @@ body {
 .loading {
     text-align: center;
     padding: 4rem;
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-size: 1.5rem;
     color: var(--accent-gold);
 }
@@ -724,7 +725,7 @@ body {
     color: var(--bg-darker);
     padding: 0.4rem 0.8rem;
     border-radius: 15px;
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-weight: 700;
     font-size: 1rem;
     border: 2px solid var(--accent-gold);
@@ -744,7 +745,7 @@ body {
     border: 2px solid rgba(212, 175, 55, 0.3);
     border-radius: 4px;
     cursor: pointer;
-    font-family: 'Cinzel', serif;
+    font-family: 'Source Sans 3', sans-serif;
     font-weight: 600;
     color: var(--text-secondary);
     transition: all 0.3s;
