@@ -8,11 +8,13 @@ let brawlNormStats = {};
 // Data loading
 async function loadData() {
     try {
+        // Cache-bust data files so the browser always fetches the latest deploy
+        const cb = `?v=${Date.now()}`;
         const [users, guilds, ctfStats, brawlStats] = await Promise.all([
-            fetch('data/users.json').then(r => r.json()),
-            fetch('data/guilds.json').then(r => r.json()),
-            fetch('data/ctf_stats.json').then(r => r.json()),
-            fetch('data/brawl_stats.json').then(r => r.json())
+            fetch(`data/users.json${cb}`).then(r => r.json()),
+            fetch(`data/guilds.json${cb}`).then(r => r.json()),
+            fetch(`data/ctf_stats.json${cb}`).then(r => r.json()),
+            fetch(`data/brawl_stats.json${cb}`).then(r => r.json())
         ]);
 
         usersData = users.filter(u => {
