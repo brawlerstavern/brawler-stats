@@ -295,12 +295,21 @@ function createHeadAvatar(player) {
         { key: 'outfit.mask.skinName', path: 'masks', file: 'mask_down.png', tintKey: 'outfit.mask' }
     ];
 
+    // Eyelid skin remaps (missing assets on CDN)
+    const eyelidRemaps = { '9': '3', '5': '3', '17': 'big2', '21': 'big3', 'halo': '0' };
+
     layerConfigs.forEach((layer, index) => {
-        const skinName = player[layer.key];
+        let skinName = player[layer.key];
         // Allow '0' as a valid skin name, but skip null/undefined/NaN/empty
-        // Hats and masks don't have a '0' asset — skip them
+        // Hats, masks, and markings don't have a '0' asset — skip them
         if (skinName !== null && skinName !== undefined && skinName !== '' && skinName !== 'null' && skinName !== 'NaN'
-            && !((layer.path === 'hats' || layer.path === 'masks') && String(skinName) === '0')) {
+            && !((layer.path === 'hats' || layer.path === 'masks' || layer.path === 'markings') && String(skinName) === '0')) {
+
+            // Remap eyelid skins that don't have assets
+            if (layer.path === 'eyelids' && eyelidRemaps[String(skinName)]) {
+                skinName = eyelidRemaps[String(skinName)];
+            }
+
             const url = `https://cdn.brawlerstavern.com/catalog/${layer.path}/${skinName}/${layer.file}`;
 
             // Get tintColor and tintDarkColor for all layers
