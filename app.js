@@ -295,8 +295,23 @@ function createHeadAvatar(player) {
         { key: 'outfit.mask.skinName', path: 'masks', file: 'mask_down.png', tintKey: 'outfit.mask' }
     ];
 
-    // Eyelid skin remaps (missing assets on CDN)
-    const eyelidRemaps = { '9': '3', '5': '3', '17': 'big2', '21': 'big3', 'halo': '0' };
+    // Eyelid skin remapping: each eye style has 4 variants (up/down/left/right)
+    // but eyelids only have one asset per group
+    function remapEyelid(name) {
+        const s = String(name);
+        const n = parseInt(s);
+        if (s === '0') return null;          // skip eyelid 0
+        if (s === 'glow' || s === 'halo') return '1';
+        if (!isNaN(n)) {
+            if (n >= 1 && n <= 4) return '1';
+            if (n >= 5 && n <= 8) return '2';
+            if (n >= 9 && n <= 12) return '3';
+            if (n >= 13 && n <= 16) return 'big1';
+            if (n >= 17 && n <= 20) return 'big2';
+            if (n >= 21 && n <= 24) return 'big3';
+        }
+        return s;
+    }
 
     layerConfigs.forEach((layer, index) => {
         let skinName = player[layer.key];
@@ -305,9 +320,10 @@ function createHeadAvatar(player) {
         if (skinName !== null && skinName !== undefined && skinName !== '' && skinName !== 'null' && skinName !== 'NaN'
             && !((layer.path === 'hats' || layer.path === 'masks' || layer.path === 'markings') && String(skinName) === '0')) {
 
-            // Remap eyelid skins that don't have assets
-            if (layer.path === 'eyelids' && eyelidRemaps[String(skinName)]) {
-                skinName = eyelidRemaps[String(skinName)];
+            // Remap eyelid skins to their group asset
+            if (layer.path === 'eyelids') {
+                skinName = remapEyelid(skinName);
+                if (skinName === null) return; // skip this layer
             }
 
             const url = `https://cdn.brawlerstavern.com/catalog/${layer.path}/${skinName}/${layer.file}`;
