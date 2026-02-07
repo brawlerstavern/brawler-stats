@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brawlers Tavern - Stats & Leaderboards</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=MedievalSharp&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="images/title-text-overlay-curved.png" alt="Brawlers Tavern">
+        </div>
+        <nav class="nav">
+            <button class="nav-btn active" onclick="showSection('solo-leaderboard')">Solo</button>
+            <button class="nav-btn" onclick="showSection('team-leaderboard')">Team</button>
+            <button class="nav-btn" onclick="showSection('ctf-leaderboard')">CTF</button>
+            <button class="nav-btn" onclick="showSection('traits-leaderboard')">Brawl Traits</button>
+            <button class="nav-btn" onclick="showSection('guild-leaderboard')">Guilds</button>
+            <button class="nav-btn" onclick="showSection('brawlers')">All Brawlers</button>
+        </nav>
+    </div>
+
+    <div class="container">
+        <!-- Solo Leaderboard -->
+        <section id="solo-leaderboard" class="section active">
+            <h2 class="section-title">Solo Leaderboard</h2>
+            <div id="solo-table-container">
+                <div class="loading">Loading leaderboard...</div>
+            </div>
+        </section>
+
+        <!-- Team Leaderboard -->
+        <section id="team-leaderboard" class="section">
+            <h2 class="section-title">Team Leaderboard</h2>
+            <div id="team-table-container">
+                <div class="loading">Loading leaderboard...</div>
+            </div>
+        </section>
+
+        <!-- CTF Leaderboard -->
+        <section id="ctf-leaderboard" class="section">
+            <h2 class="section-title">CTF Leaderboard</h2>
+            <div class="ctf-tabs">
+                <button class="ctf-tab active" onclick="showCTFTab('all')">Overall</button>
+                <button class="ctf-tab" onclick="showCTFTab('offensive')">Offensive</button>
+                <button class="ctf-tab" onclick="showCTFTab('defensive')">Defensive</button>
+                <button class="ctf-tab" onclick="showCTFTab('winrate')">Win Rate</button>
+            </div>
+            <div class="ctf-scroll-wrapper">
+                <div id="ctf-table-container">
+                    <div class="loading">Loading leaderboard...</div>
+                </div>
+            </div>
+            <div id="ctf-methodology"></div>
+        </section>
+
+        <!-- Traits & Combat Analysis Leaderboard -->
+        <section id="traits-leaderboard" class="section">
+            <h2 class="section-title">Brawl Traits</h2>
+            <div class="search-bar">
+                <select class="filter-select" onchange="filterByTrait(this.value)">
+                    <option value="">All Brawlers</option>
+                    <optgroup label="Combat Traits">
+                        <option value="trait:Decisive Victor">Decisive Victor</option>
+                        <option value="trait:Deadly Accurate">Deadly Accurate</option>
+                        <option value="trait:Accurate">Accurate</option>
+                        <option value="trait:Attack Spammer">Attack Spammer</option>
+                        <option value="trait:Untouchable">Untouchable</option>
+                        <option value="trait:Evasive">Evasive</option>
+                        <option value="trait:Perfect Timing">Perfect Timing</option>
+                        <option value="trait:Excellent Combos">Excellent Combos</option>
+                        <option value="trait:Great Combos">Great Combos</option>
+                        <option value="trait:Good Combos">Good Combos</option>
+                        <option value="trait:Excellent Counters">Excellent Counters</option>
+                        <option value="trait:Great Counters">Great Counters</option>
+                        <option value="trait:Good Counters">Good Counters</option>
+                        <option value="trait:Quitter">Quitter</option>
+                    </optgroup>
+                    <optgroup label="Fighting Styles">
+                        <option value="style:Defensive">Defensive</option>
+                        <option value="style:Offensive">Offensive</option>
+                        <option value="style:Balanced">Balanced</option>
+                        <option value="style:Northwest">Northwest</option>
+                        <option value="style:Northeast">Northeast</option>
+                        <option value="style:North">North</option>
+                        <option value="style:Southwest">Southwest</option>
+                        <option value="style:Southeast">Southeast</option>
+                        <option value="style:South">South</option>
+                        <option value="style:West">West</option>
+                        <option value="style:East">East</option>
+                        <option value="style:Center Control">Center Control</option>
+                        <option value="style:Wall Hugger">Wall Hugger</option>
+                        <option value="style:Wall Control">Wall Control</option>
+                        <option value="style:Side Slasher">Side Slasher</option>
+                        <option value="style:Vertical Slasher">Vertical Slasher</option>
+                        <option value="style:Gambler">Gambler</option>
+                        <option value="style:Trades Well">Trades Well</option>
+                        <option value="style:Retaliator">Retaliator</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div id="traits-table-container">
+                <div class="loading">Loading combat analysis...</div>
+            </div>
+        </section>
+
+        <!-- Guild Leaderboard -->
+        <section id="guild-leaderboard" class="section">
+            <h2 class="section-title">Guild Rankings</h2>
+            <div id="guild-table-container">
+                <div class="loading">Loading guilds...</div>
+            </div>
+        </section>
+
+        <!-- All Brawlers Section -->
+        <section id="brawlers" class="section">
+            <h2 class="section-title">All Brawlers</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search brawlers..." onkeyup="filterBrawlers(this.value)">
+            </div>
+            <div id="brawlers-grid" class="brawler-grid">
+                <div class="loading">Loading brawlers...</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Player Modal -->
+    <div id="player-modal" class="modal">
+        <div class="modal-content">
+            <div class="close-modal" onclick="closePlayerModal()">×</div>
+            <div class="modal-header">
+                <div class="modal-avatar" id="modal-avatar"></div>
+                <div class="modal-player-info">
+                    <h2 id="modal-username"></h2>
+                    <h3 id="modal-nickname"></h3>
+                    <div id="modal-guild" class="brawler-guild"></div>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="modal-stats" class="stats-grid"></div>
+                <div class="traits-section">
+                    <h3>Combat Traits</h3>
+                    <div id="modal-traits" class="traits-grid"></div>
+                </div>
+                <div class="styles-section">
+                    <h3>Fighting Styles</h3>
+                    <div id="modal-styles" class="traits-grid"></div>
+                </div>
+                <div class="traits-section">
+                    <h3>CTF Statistics</h3>
+                    <div id="modal-ctf" class="stats-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guild Modal -->
+    <div id="guild-modal" class="modal">
+        <div class="modal-content">
+            <div class="close-modal" onclick="closeGuildModal()">×</div>
+            <div class="modal-header">
+                <div class="modal-player-info">
+                    <h2 id="guild-modal-name"></h2>
+                    <h3 id="guild-modal-tag"></h3>
+                    <p id="guild-modal-description" style="margin-top: 1rem; color: rgba(245, 230, 211, 0.9);"></p>
+                </div>
+            </div>
+            <div class="modal-body">
+                <h3 style="font-family: 'Cinzel', serif; color: var(--accent-gold); margin-bottom: 1rem;">Guild Members</h3>
+                <div id="guild-members-container" class="guild-members-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

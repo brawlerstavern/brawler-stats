@@ -1,0 +1,13 @@
+# Firebase service account key - NEVER commit this
+service-account.json
+
+# Build output
+_site/
+
+# Python
+__pycache__/
+*.pyc
+
+# Firebase raw exports
+data/users-*.json
+data/guilds-*.json

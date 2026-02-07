@@ -1,0 +1,66 @@
+name: Update Data & Deploy
+
+on:
+  # Run every 24 hours at midnight UTC
+  schedule:
+    - cron: "0 0 * * *"
+  # Also deploy when code is pushed to main
+  push:
+    branches: [main]
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account.json
+
+      - name: Fetch data from Firestore
+        run: python fetch_firestore.py
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site/data _site/images
+          cp index.html _site/
+          cp app.js _site/
+          cp styles.css _site/
+          cp data/users.json _site/data/
+          cp data/guilds.json _site/data/
+          cp data/ctf_stats.json _site/data/
+          cp data/brawl_stats.json _site/data/
+          cp images/* _site/images/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
