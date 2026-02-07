@@ -41,7 +41,10 @@ body {
 }
 
 .header-logo {
-    flex-shrink: 0;
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .header-logo img {
@@ -79,7 +82,7 @@ body {
 
 .nav {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     gap: 0.75rem;
     flex-wrap: wrap;
     flex: 1;
