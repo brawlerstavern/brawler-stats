@@ -138,7 +138,8 @@ def process_firebase_export(users_file, guilds_file, output_dir='data'):
                     'reputation': user.get('stats.reputation', 0),
                     'guildReputation': guild_rep,
                     'brawlRating': user.get('stats.brawl.rating', 0),
-                    'teamRating': user.get('stats.teamBrawl.rating', 0)
+                    'teamRating': user.get('stats.teamBrawl.rating', 0),
+                    'rank': '',
                 })
     
     # Calculate CTF normalization stats

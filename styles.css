@@ -734,6 +734,29 @@ body {
     font-weight: 700;
     font-size: 1rem;
     border: 2px solid var(--accent-gold);
+    transition: all 0.3s ease;
+}
+
+.score-badge.score-high {
+    background: linear-gradient(135deg, #e8c84a 0%, #dda73a 100%);
+    border-color: #e8c84a;
+    color: #1a1410;
+    box-shadow: 0 0 8px rgba(232, 200, 74, 0.4);
+}
+
+.score-badge.score-elite {
+    background: linear-gradient(135deg, #f0e6d0 0%, #d4c4a8 100%);
+    border-color: #f0e6d0;
+    color: #1a1410;
+    box-shadow: 0 0 12px rgba(240, 230, 208, 0.5);
+}
+
+.score-badge.score-legendary {
+    background: linear-gradient(135deg, #f5f0e8 0%, #e0d8cc 100%);
+    border-color: #f5f0e8;
+    color: #1a1410;
+    box-shadow: 0 0 15px rgba(100, 160, 255, 0.6), 0 0 30px rgba(100, 160, 255, 0.3);
+    text-shadow: 0 0 4px rgba(100, 160, 255, 0.4);
 }
 
 .ctf-tabs {

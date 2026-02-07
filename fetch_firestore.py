@@ -149,8 +149,27 @@ def process_users(users_raw):
     return users_data
 
 
-def process_guilds(guilds_raw, users_data):
+def fetch_guild_members(db, guilds_raw):
+    """Fetch members subcollection for all guilds to get rank data."""
+    print("  Fetching guild member ranks...", end=" ", flush=True)
+    guild_members = {}
+    for guild_id in guilds_raw:
+        members_ref = db.collection("guilds").document(guild_id).collection("members")
+        members = members_ref.get()
+        for doc in members:
+            data = doc.to_dict()
+            if data:
+                guild_members.setdefault(guild_id, {})[doc.id] = data
+    total = sum(len(v) for v in guild_members.values())
+    print(f"{total} member records across {len(guild_members)} guilds")
+    return guild_members
+
+
+def process_guilds(guilds_raw, users_data, guild_members=None):
     """Process raw Firestore guild documents and attach members."""
+    if guild_members is None:
+        guild_members = {}
+
     guilds_data = {}
     for guild_id, guild in guilds_raw.items():
         if not guild:
@@ -169,8 +188,17 @@ def process_guilds(guilds_raw, users_data):
     for user in users_data:
         for guild_ref in user.get("guildRefs", []):
             if guild_ref in guilds_data:
+                guild_id = guilds_data[guild_ref]["id"]
                 guild_tag = guilds_data[guild_ref]["tag"]
                 guild_rep = user.get(f"stats.guildReputation.{guild_tag}", 0)
+
+                # Look up rank from members subcollection
+                rank = ""
+                user_id = user.get("id", "")
+                if guild_id in guild_members and user_id in guild_members[guild_id]:
+                    member_doc = guild_members[guild_id][user_id]
+                    rank = member_doc.get("rank", "")
+
                 guilds_data[guild_ref]["members"].append({
                     "username": user["username"],
                     "nickname": user.get("nickname", ""),
@@ -178,6 +206,7 @@ def process_guilds(guilds_raw, users_data):
                     "guildReputation": guild_rep,
                     "brawlRating": user.get("stats.brawl.rating", 0),
                     "teamRating": user.get("stats.teamBrawl.rating", 0),
+                    "rank": rank,
                 })
 
     return guilds_data
@@ -261,12 +290,13 @@ def main():
     print("Fetching collections:")
     users_raw = fetch_collection(db, "users")
     guilds_raw = fetch_collection(db, "guilds")
+    guild_members = fetch_guild_members(db, guilds_raw)
     print()
 
     # Process
     print("Processing data...")
     users_data = process_users(users_raw)
-    guilds_data = process_guilds(guilds_raw, users_data)
+    guilds_data = process_guilds(guilds_raw, users_data, guild_members)
     ctf_norm, brawl_norm, ctf_count, brawl_count = calculate_norm_stats(users_data)
     print(f"  {len(users_data)} users processed")
     print(f"  {len(guilds_data)} guilds processed")

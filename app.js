@@ -35,6 +35,7 @@ async function loadData() {
         renderCTFLeaderboard('all');
         renderTraitsLeaderboard();
         renderGuildLeaderboard();
+        renderEventsLeaderboard();
     } catch (error) {
         console.error('Error loading data:', error);
         document.querySelectorAll('.loading').forEach(el => {
@@ -279,6 +280,20 @@ function formatNumber(num) {
         return num.toString();
     }
     return num.toFixed(1);
+}
+
+function formatScore(score) {
+    return Math.round(score * 10);
+}
+
+function scoreBadgeHTML(score, preformatted) {
+    const value = preformatted ? score : formatScore(score);
+    const numValue = typeof value === 'number' ? value : parseInt(value, 10);
+    let tierClass = '';
+    if (numValue >= 95) tierClass = ' score-legendary';
+    else if (numValue >= 90) tierClass = ' score-elite';
+    else if (numValue >= 80) tierClass = ' score-high';
+    return `<span class="score-badge${tierClass}">${value}</span>`;
 }
 
 function createHeadAvatar(player) {
@@ -726,6 +741,130 @@ function getTraitValue(player, traitName) {
     }
 }
 
+function getRawTraitDisplay(player, traitName) {
+    const finishes = player['stats.brawl.traits.finishes'] || 0;
+    if (finishes === 0) return 'N/A';
+
+    const totalTime = player['stats.brawl.traits.totalTime'] || 0;
+    const hits = player['stats.brawl.traits.hits'] || 0;
+    const swings = player['stats.brawl.traits.swings'] || 1;
+    const hurts = player['stats.brawl.traits.hurts'] || 0;
+    const combos = player['stats.brawl.traits.combos'] || 0;
+    const perfectCombos = player['stats.brawl.traits.perfectCombos'] || 0;
+    const counters = player['stats.brawl.traits.counters'] || 0;
+    const counterAttempts = player['stats.brawl.traits.counterAttempts'] || 1;
+    const evasiveBrawls = player['stats.brawl.traits.evasiveBrawls'] || 0;
+    const gambles = player['stats.brawl.traits.gambles'] || 0;
+    const trades = player['stats.brawl.traits.trades'] || 0;
+    const retaliations = player['stats.brawl.traits.retaliations'] || 0;
+    const sideSwings = player['stats.brawl.traits.sideSwings'] || 0;
+    const nearCenterTime = player['stats.brawl.traits.nearCenterTime'] || 0;
+    const nearWallTime = player['stats.brawl.traits.nearWallTime'] || 0;
+    const brawls = player['stats.brawl.brawls'] || 1;
+    const leaves = player['stats.brawl.leaves'] || 0;
+
+    switch (traitName) {
+        case 'Decisive Victor':
+            return (hurts / finishes).toFixed(1) + '/finish';
+        case 'Deadly Accurate':
+        case 'Accurate':
+        case 'Attack Spammer':
+            return ((hits / swings) * 100).toFixed(1) + '%';
+        case 'Untouchable':
+        case 'Evasive':
+            return ((evasiveBrawls / finishes) * 100).toFixed(1) + '%';
+        case 'Perfect Timing':
+            return combos > 0 ? ((perfectCombos / combos) * 100).toFixed(1) + '%' : '0%';
+        case 'Excellent Combos':
+        case 'Great Combos':
+        case 'Good Combos':
+            return (combos / finishes).toFixed(2) + '/finish';
+        case 'Excellent Counters':
+        case 'Great Counters':
+        case 'Good Counters':
+            return ((counters / counterAttempts) * 100).toFixed(1) + '%';
+        case 'Quitter':
+            return ((leaves / brawls) * 100).toFixed(1) + '%';
+        case 'Defensive':
+        case 'Offensive':
+        case 'Balanced':
+            return ((totalTime / finishes) / 1000).toFixed(1) + 's';
+        case 'Gambler':
+            return hits > 0 ? ((gambles / hits) * 100).toFixed(1) + '%' : '0%';
+        case 'Trades Well':
+            return hurts > 0 ? ((trades / hurts) * 100).toFixed(1) + '%' : '0%';
+        case 'Retaliator':
+            return hurts > 0 ? ((retaliations / hurts) * 100).toFixed(1) + '%' : '0%';
+        case 'Side Slasher':
+            return ((sideSwings / swings) * 100).toFixed(1) + '%';
+        case 'Vertical Slasher':
+            return (((swings - sideSwings) / swings) * 100).toFixed(1) + '%';
+        case 'Center Control':
+            return totalTime > 0 ? ((nearCenterTime / totalTime) * 100).toFixed(1) + '%' : '0%';
+        case 'Wall Hugger':
+        case 'Wall Control':
+            return totalTime > 0 ? ((nearWallTime / totalTime) * 100).toFixed(1) + '%' : '0%';
+        default:
+            return 'N/A';
+    }
+}
+
+function getRawTraitSortValue(player, traitName) {
+    const finishes = player['stats.brawl.traits.finishes'] || 0;
+    if (finishes === 0) return null;
+
+    const totalTime = player['stats.brawl.traits.totalTime'] || 0;
+    const hits = player['stats.brawl.traits.hits'] || 0;
+    const swings = player['stats.brawl.traits.swings'] || 1;
+    const hurts = player['stats.brawl.traits.hurts'] || 0;
+    const combos = player['stats.brawl.traits.combos'] || 0;
+    const perfectCombos = player['stats.brawl.traits.perfectCombos'] || 0;
+    const counters = player['stats.brawl.traits.counters'] || 0;
+    const counterAttempts = player['stats.brawl.traits.counterAttempts'] || 1;
+    const evasiveBrawls = player['stats.brawl.traits.evasiveBrawls'] || 0;
+    const gambles = player['stats.brawl.traits.gambles'] || 0;
+    const trades = player['stats.brawl.traits.trades'] || 0;
+    const retaliations = player['stats.brawl.traits.retaliations'] || 0;
+    const sideSwings = player['stats.brawl.traits.sideSwings'] || 0;
+    const nearCenterTime = player['stats.brawl.traits.nearCenterTime'] || 0;
+    const nearWallTime = player['stats.brawl.traits.nearWallTime'] || 0;
+    const brawls = player['stats.brawl.brawls'] || 1;
+    const leaves = player['stats.brawl.leaves'] || 0;
+
+    switch (traitName) {
+        case 'Decisive Victor': return hurts / finishes;
+        case 'Deadly Accurate':
+        case 'Accurate':
+        case 'Attack Spammer': return hits / swings;
+        case 'Untouchable':
+        case 'Evasive': return evasiveBrawls / finishes;
+        case 'Perfect Timing': return combos > 0 ? perfectCombos / combos : 0;
+        case 'Excellent Combos':
+        case 'Great Combos':
+        case 'Good Combos': return combos / finishes;
+        case 'Excellent Counters':
+        case 'Great Counters':
+        case 'Good Counters': return counters / counterAttempts;
+        case 'Quitter': return leaves / brawls;
+        case 'Defensive':
+        case 'Offensive':
+        case 'Balanced': return totalTime / finishes;
+        case 'Gambler': return hits > 0 ? gambles / hits : 0;
+        case 'Trades Well': return hurts > 0 ? trades / hurts : 0;
+        case 'Retaliator': return hurts > 0 ? retaliations / hurts : 0;
+        case 'Side Slasher': return sideSwings / swings;
+        case 'Vertical Slasher': return (swings - sideSwings) / swings;
+        case 'Center Control': return totalTime > 0 ? nearCenterTime / totalTime : 0;
+        case 'Wall Hugger':
+        case 'Wall Control': return totalTime > 0 ? nearWallTime / totalTime : 0;
+        default: return null;
+    }
+}
+
+function isAscendingTrait(traitName) {
+    return traitName === 'Offensive' || traitName === 'Decisive Victor';
+}
+
 // TABLE SORTING FUNCTIONALITY
 function makeTablesSortable() {
     document.querySelectorAll('.leaderboard-table').forEach(table => {
@@ -932,8 +1071,8 @@ function renderBrawlers() {
         const brawlScore = calculateBrawlScore(player);
         const brawlScoreBadge = brawlScore !== null ? `
             <div class="stat-item">
-                <div class="stat-label">Overall</div>
-                <div class="stat-value"><span class="score-badge">${formatNumber(brawlScore)}</span></div>
+                <div class="stat-label">OVR</div>
+                <div class="stat-value">${scoreBadgeHTML(brawlScore)}</div>
             </div>
         ` : '';
 
@@ -1057,7 +1196,7 @@ function renderSoloLeaderboard() {
                 <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
                 <td>${wins} / ${brawls}</td>
                 <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
-                <td><span class="score-badge">${brawlScore !== null ? formatNumber(brawlScore) : 'N/A'}</span></td>
+                <td>${brawlScore !== null ? scoreBadgeHTML(brawlScore) : 'N/A'}</td>
             </tr>
         `;
     }).join('');
@@ -1072,7 +1211,7 @@ function renderSoloLeaderboard() {
                     <th>Rating</th>
                     <th>Record</th>
                     <th>Win Rate</th>
-                    <th>Overall</th>
+                    <th>OVR</th>
                 </tr>
             </thead>
             <tbody>
@@ -1080,7 +1219,7 @@ function renderSoloLeaderboard() {
             </tbody>
         </table>
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-            <strong style="color: var(--accent-gold);">Overall Score Calculation:</strong> Data-driven weights from correlation analysis with rating:<br>
+            <strong style="color: var(--accent-gold);">OVR Score Calculation:</strong> Data-driven weights from correlation analysis with rating:<br>
             <strong>Efficiency (24.8%):</strong> Damage taken per finish (inverse) - <em>strongest predictor</em><br>
             <strong>Counter Success (24.4%):</strong> Successful counter rate<br>
             <strong>Combos (20.5%):</strong> Average combos per finish<br>
@@ -1204,9 +1343,9 @@ function renderCTFLeaderboard(tab = 'winrate') {
                             <span class="player-nickname">${player.nickname || ''}</span>
                         </div>
                     </td>
-                    <td><span class="score-badge">${formatNumber(scores.overall)}</span></td>
-                    <td><span class="score-badge">${formatNumber(scores.offensive)}</span></td>
-                    <td><span class="score-badge">${formatNumber(scores.defensive)}</span></td>
+                    <td>${scoreBadgeHTML(scores.overall)}</td>
+                    <td>${scoreBadgeHTML(scores.offensive)}</td>
+                    <td>${scoreBadgeHTML(scores.defensive)}</td>
                     <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
                     <td>${formatNumber(scores.capturesPerGame)}</td>
                     <td>${formatNumber(scores.chargesPerGame)}</td>
@@ -1227,9 +1366,9 @@ function renderCTFLeaderboard(tab = 'winrate') {
                             <span class="player-nickname">${player.nickname || ''}</span>
                         </div>
                     </td>
-                    ${tab === 'overall' ? `<td><span class="score-badge">${formatNumber(scores.overall)}</span></td>` : ''}
-                    ${tab === 'offensive' ? `<td><span class="score-badge">${formatNumber(scores.offensive)}</span></td>` : ''}
-                    ${tab === 'defensive' ? `<td><span class="score-badge">${formatNumber(scores.defensive)}</span></td>` : ''}
+                    ${tab === 'overall' ? `<td>${scoreBadgeHTML(scores.overall)}</td>` : ''}
+                    ${tab === 'offensive' ? `<td>${scoreBadgeHTML(scores.offensive)}</td>` : ''}
+                    ${tab === 'defensive' ? `<td>${scoreBadgeHTML(scores.defensive)}</td>` : ''}
                     ${tab === 'winrate' ? `<td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>` : ''}
                     <td>${scores.wins} / ${scores.games}</td>
                 </tr>
@@ -1239,13 +1378,13 @@ function renderCTFLeaderboard(tab = 'winrate') {
 
     let headers = '';
     if (tab === 'all') {
-        headers = '<th>Rank</th><th>Brawler</th><th>Overall</th><th>Offensive</th><th>Defensive</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Defenses/g</th><th>Escorts/g</th><th>Recovers/g</th><th>Record</th>';
+        headers = '<th>Rank</th><th>Brawler</th><th>OVR</th><th>OFF</th><th>DEF</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Defenses/g</th><th>Escorts/g</th><th>Recovers/g</th><th>Record</th>';
     } else if (tab === 'overall') {
-        headers = '<th>Rank</th><th>Brawler</th><th>Overall Score</th><th>Record</th>';
+        headers = '<th>Rank</th><th>Brawler</th><th>OVR</th><th>Record</th>';
     } else if (tab === 'offensive') {
-        headers = '<th>Rank</th><th>Brawler</th><th>Offensive Score</th><th>Record</th>';
+        headers = '<th>Rank</th><th>Brawler</th><th>OFF</th><th>Record</th>';
     } else if (tab === 'defensive') {
-        headers = '<th>Rank</th><th>Brawler</th><th>Defensive Score</th><th>Record</th>';
+        headers = '<th>Rank</th><th>Brawler</th><th>DEF</th><th>Record</th>';
     } else if (tab === 'winrate') {
         headers = '<th>Rank</th><th>Brawler</th><th>Win Rate</th><th>Record</th>';
     }
@@ -1260,9 +1399,9 @@ function renderCTFLeaderboard(tab = 'winrate') {
     document.getElementById('ctf-methodology').innerHTML = `
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
             <strong style="color: var(--accent-gold);">CTF Score Calculation:</strong><br>
-            <strong>Overall:</strong> Max(Offensive, Defensive) + Win Rate Bonus<br>
-            <strong>Offensive:</strong> Average of normalized Captures, Charges, and Escorts<br>
-            <strong>Defensive:</strong> Average of normalized Defenses, Recovers, and Escorts<br>
+            <strong>OVR:</strong> Max(OFF, DEF) + Win Rate Bonus<br>
+            <strong>OFF:</strong> Average of normalized Captures, Charges, and Escorts<br>
+            <strong>DEF:</strong> Average of normalized Defenses, Recovers, and Escorts<br>
             <strong>Win Rate Bonus:</strong> +0.1 per 1% win rate over 50% (max +5)<br>
             All scores normalized to 0-10 scale and capped at 10. Minimum 20 games required.
         </div>
@@ -1316,9 +1455,14 @@ function renderTraitsLeaderboard(filter = '') {
         return;
     }
 
-    // Sort by trait value if selected, otherwise by Brawl Score
+    // Sort by raw trait value if selected, otherwise by Brawl Score
     if (selectedTrait) {
-        eligible.sort((a, b) => (getTraitValue(b, selectedTrait) || 0) - (getTraitValue(a, selectedTrait) || 0));
+        const asc = isAscendingTrait(selectedTrait);
+        eligible.sort((a, b) => {
+            const va = getRawTraitSortValue(a, selectedTrait) || 0;
+            const vb = getRawTraitSortValue(b, selectedTrait) || 0;
+            return asc ? va - vb : vb - va;
+        });
     } else {
         eligible.sort((a, b) => (calculateBrawlScore(b) || 0) - (calculateBrawlScore(a) || 0));
     }
@@ -1352,7 +1496,7 @@ function renderTraitsLeaderboard(filter = '') {
         else if (rank === 3) rankClass = 'bronze';
 
         // Get trait value if a specific trait is selected
-        const traitValueCell = selectedTrait ? `<td><span class="score-badge">${formatNumber(getTraitValue(player, selectedTrait) || 0)}</span></td>` : '';
+        const traitValueCell = selectedTrait ? `<td>${getRawTraitDisplay(player, selectedTrait)}</td>` : '';
 
         return `
             <tr onclick="showPlayerModal('${player.username}')">
@@ -1364,13 +1508,13 @@ function renderTraitsLeaderboard(filter = '') {
                         <span class="player-nickname">${player.nickname || ''}</span>
                     </div>
                 </td>
-                <td><span class="score-badge">${brawlScore !== null ? formatNumber(brawlScore) : 'N/A'}</span></td>
+                <td>${brawlScore !== null ? scoreBadgeHTML(brawlScore) : 'N/A'}</td>
                 ${traitValueCell}
-                <td>${formatNumber(accuracy)}</td>
-                <td>${formatNumber(hurtsPerFinish)}</td>
-                <td>${formatNumber(evasionRate)}</td>
-                <td>${formatNumber(comboRate)}</td>
-                <td>${formatNumber(counterRate)}</td>
+                <td>${formatScore(accuracy)}</td>
+                <td>${formatScore(hurtsPerFinish)}</td>
+                <td>${formatScore(evasionRate)}</td>
+                <td>${formatScore(comboRate)}</td>
+                <td>${formatScore(counterRate)}</td>
                 <td data-rating="${rating}">
                     <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${rankInfo.rank}
@@ -1379,7 +1523,7 @@ function renderTraitsLeaderboard(filter = '') {
         `;
     }).join('');
 
-    const traitHeader = selectedTrait ? `<th>${selectedTrait} Value</th>` : '';
+    const traitHeader = selectedTrait ? `<th>${selectedTrait}</th>` : '';
 
     container.innerHTML = `
         <table class="leaderboard-table">
@@ -1387,7 +1531,7 @@ function renderTraitsLeaderboard(filter = '') {
                 <tr>
                     <th>Rank</th>
                     <th>Brawler</th>
-                    <th>Overall</th>
+                    <th>OVR</th>
                     ${traitHeader}
                     <th>Accuracy</th>
                     <th>Efficiency</th>
@@ -1485,6 +1629,72 @@ function renderGuildLeaderboard() {
     makeTablesSortable();
 }
 
+// EVENTS LEADERBOARD
+function renderEventsLeaderboard() {
+    const container = document.getElementById('events-table-container');
+    const eligible = usersData.filter(u => (u['stats.event.games'] || 0) > 0);
+
+    const withScores = eligible.map(player => {
+        const games = player['stats.event.games'] || 0;
+        const soloWins = player['stats.event.soloWins'] || 0;
+        const teamWins = player['stats.event.teamWins'] || 0;
+        const eventOVR = games > 0 ? Math.round((soloWins + teamWins) / games * 100) : 0;
+        return { player, games, soloWins, teamWins, eventOVR };
+    });
+
+    withScores.sort((a, b) => b.eventOVR - a.eventOVR);
+
+    if (withScores.length === 0) {
+        container.innerHTML = '<div class="no-data">No event data available</div>';
+        return;
+    }
+
+    const rows = withScores.map((item, index) => {
+        const { player, games, soloWins, teamWins, eventOVR } = item;
+        const rank = index + 1;
+
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        return `
+            <tr onclick="showPlayerModal('${player.username}')">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td class="player-cell">
+                    <div class="player-avatar-small">${createHeadAvatar(player)}</div>
+                    <div class="player-name">
+                        <span class="player-username">${player.username}</span>
+                        <span class="player-nickname">${player.nickname || ''}</span>
+                    </div>
+                </td>
+                <td>${scoreBadgeHTML(eventOVR, true)}</td>
+                <td>${games}</td>
+                <td>${soloWins}</td>
+                <td>${teamWins}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Brawler</th>
+                    <th>Event OVR</th>
+                    <th>Games</th>
+                    <th>Solo Wins</th>
+                    <th>Team Wins</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+    makeTablesSortable();
+    setTimeout(() => applyAllTints(), 100);
+}
+
 // PLAYER MODAL
 function showPlayerModal(username) {
     const player = usersData.find(u => u.username === username);
@@ -1528,8 +1738,8 @@ function showPlayerModal(username) {
     if (brawlScore !== null) {
         statsHTML += `
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Overall</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScore)}</span></div>
+                <div class="modal-stat-label">OVR</div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScore)}</div>
             </div>
         `;
     }
@@ -1607,6 +1817,17 @@ function showPlayerModal(username) {
         }
     }
 
+    // Knockouts
+    const knockouts = player['stats.knockouts'] || 0;
+    if (knockouts > 0) {
+        statsHTML += `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Knockouts</div>
+                <div class="modal-stat-value">${knockouts}</div>
+            </div>
+        `;
+    }
+
     // Event stats
     const eventGames = player['stats.event.games'] || 0;
     if (eventGames > 0) {
@@ -1647,28 +1868,28 @@ function showPlayerModal(username) {
         brawlStatsSection.style.display = '';
         document.getElementById('modal-brawl-scores').innerHTML = `
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Overall</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.overall)}</span></div>
+                <div class="modal-stat-label">OVR</div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.overall)}</div>
             </div>
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Accuracy</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.accuracy)}</span></div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.accuracy)}</div>
             </div>
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Efficiency</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.efficiency)}</span></div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.efficiency)}</div>
             </div>
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Evasion</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.evasion)}</span></div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.evasion)}</div>
             </div>
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Combos</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.combos)}</span></div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.combos)}</div>
             </div>
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Counters</div>
-                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.counters)}</span></div>
+                <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.counters)}</div>
             </div>
         `;
     } else {
@@ -1676,29 +1897,25 @@ function showPlayerModal(username) {
     }
 
     // CTF
-    const ctfGames = player['stats.event.ctf.games'] || 0;
     const ctfSection = document.getElementById('modal-ctf-section');
-    if (ctfGames > 0) {
+    ctfSection.style.display = 'none';
+    const ctfScores = calculateCTFScores(player);
+    if (ctfScores) {
         ctfSection.style.display = '';
-        const ctfScores = calculateCTFScores(player);
-        if (ctfScores) {
-            document.getElementById('modal-ctf').innerHTML = `
-                <div class="modal-stat-card">
-                    <div class="modal-stat-label">CTF Overall</div>
-                    <div class="modal-stat-value"><span class="score-badge">${formatNumber(ctfScores.overall)}</span></div>
-                </div>
-                <div class="modal-stat-card">
-                    <div class="modal-stat-label">Offensive</div>
-                    <div class="modal-stat-value"><span class="score-badge">${formatNumber(ctfScores.offensive)}</span></div>
-                </div>
-                <div class="modal-stat-card">
-                    <div class="modal-stat-label">Defensive</div>
-                    <div class="modal-stat-value"><span class="score-badge">${formatNumber(ctfScores.defensive)}</span></div>
-                </div>
-            `;
-        }
-    } else {
-        ctfSection.style.display = 'none';
+        document.getElementById('modal-ctf').innerHTML = `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">CTF OVR</div>
+                <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.overall)}</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">OFF</div>
+                <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.offensive)}</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">DEF</div>
+                <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.defensive)}</div>
+            </div>
+        `;
     }
 
     modal.classList.add('active');
@@ -1716,14 +1933,17 @@ function showGuildModal(guildRef) {
     document.getElementById('guild-modal-tag').textContent = `[${guild.tag}]`;
     document.getElementById('guild-modal-description').textContent = guild.description || guild.motd || '';
 
-    const membersHTML = guild.members.map(member => `
+    const membersHTML = guild.members.map(member => {
+        const rankBadge = member.rank ? `<span style="font-size: 0.75rem; background: var(--accent-red); color: var(--text-primary); padding: 0.15rem 0.5rem; border-radius: 3px; margin-left: 0.5rem; text-transform: capitalize;">${member.rank}</span>` : '';
+        return `
         <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">
-            <div style="font-family: 'Source Sans 3', sans-serif; font-weight: 600; color: var(--accent-gold); margin-bottom: 0.5rem;">${member.username}</div>
+            <div style="font-family: 'Source Sans 3', sans-serif; font-weight: 600; color: var(--accent-gold); margin-bottom: 0.5rem;">${member.username}${rankBadge}</div>
             <div style="font-size: 0.9rem; color: var(--text-secondary);">
                 Guild Rep: ${member.guildReputation || 0}
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     document.getElementById('guild-members-container').innerHTML = membersHTML;
     document.getElementById('guild-modal').classList.add('active');
