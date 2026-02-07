@@ -49,6 +49,7 @@ jobs:
           mkdir -p _site/data _site/images
           cp index.html _site/
           cp app.js _site/
+          cp sw.js _site/
           cp styles.css _site/
           cp data/users.json _site/data/
           cp data/guilds.json _site/data/

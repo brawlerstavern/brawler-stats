@@ -243,7 +243,9 @@ function createHeadAvatar(player) {
     layerConfigs.forEach((layer, index) => {
         const skinName = player[layer.key];
         // Allow '0' as a valid skin name, but skip null/undefined/NaN/empty
-        if (skinName !== null && skinName !== undefined && skinName !== '' && skinName !== 'null' && skinName !== 'NaN') {
+        // Hats and masks don't have a '0' asset — skip them
+        if (skinName !== null && skinName !== undefined && skinName !== '' && skinName !== 'null' && skinName !== 'NaN'
+            && !((layer.path === 'hats' || layer.path === 'masks') && String(skinName) === '0')) {
             const url = `https://cdn.brawlerstavern.com/catalog/${layer.path}/${skinName}/${layer.file}`;
 
             // Get tintColor and tintDarkColor for all layers
@@ -273,7 +275,7 @@ function createHeadAvatar(player) {
             // Scale all images 2x with proper centering
             const styleAttr = ` style="transform: translate(-50%, -50%) scale(2);"`;
 
-            layers.push(`<img src="${url}" onerror="this.style.display='none'"${dataAttr}${styleAttr}>`);
+            layers.push(`<img src="${url}" loading="lazy" onerror="this.style.display='none'"${dataAttr}${styleAttr}>`);
         }
     });
 
