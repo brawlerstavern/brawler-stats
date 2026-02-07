@@ -52,8 +52,46 @@ function unpackColor(packedColor) {
     return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 }
 
-// Cache for tinted images to avoid re-processing
+// Persistent tinted image cache using IndexedDB
 const tintedImageCache = {};
+const DB_NAME = 'brawler-tint-cache';
+const DB_VERSION = 1;
+const STORE_NAME = 'tinted';
+let tintDB = null;
+
+function openTintDB() {
+    return new Promise((resolve) => {
+        try {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+            req.onsuccess = () => { tintDB = req.result; resolve(tintDB); };
+            req.onerror = () => resolve(null);
+        } catch (e) { resolve(null); }
+    });
+}
+
+function getTintFromDB(key) {
+    return new Promise((resolve) => {
+        if (!tintDB) { resolve(null); return; }
+        try {
+            const tx = tintDB.transaction(STORE_NAME, 'readonly');
+            const req = tx.objectStore(STORE_NAME).get(key);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
+        } catch (e) { resolve(null); }
+    });
+}
+
+function saveTintToDB(key, dataUrl) {
+    if (!tintDB) return;
+    try {
+        const tx = tintDB.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(dataUrl, key);
+    } catch (e) { /* silent */ }
+}
+
+// Initialize DB on load
+openTintDB();
 
 function applyColorTint(imgUrl, tintColor, tintDarkColor, callback, isEyes = false) {
     // If both colors are white, no tint needed (unless it's eyes - eyes always need tinting)
@@ -63,11 +101,27 @@ function applyColorTint(imgUrl, tintColor, tintDarkColor, callback, isEyes = fal
     }
 
     const cacheKey = `${imgUrl}_${tintColor}_${tintDarkColor}_${isEyes}`;
+
+    // Check in-memory cache first
     if (tintedImageCache[cacheKey]) {
         callback(tintedImageCache[cacheKey]);
         return;
     }
 
+    // Check persistent IndexedDB cache
+    getTintFromDB(cacheKey).then((cached) => {
+        if (cached) {
+            tintedImageCache[cacheKey] = cached;
+            callback(cached);
+            return;
+        }
+
+        // Not cached — tint from scratch
+        tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, callback);
+    });
+}
+
+function tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, callback) {
     // Construct 3 packs color as RGBA (0xRRGGBBAA)
     // Extract tintColor (for bright pixels)
     const r1 = (tintColor >> 24) & 0xFF;
@@ -130,6 +184,7 @@ function applyColorTint(imgUrl, tintColor, tintDarkColor, callback, isEyes = fal
             ctx.putImageData(imageData, 0, 0);
             const tintedUrl = canvas.toDataURL();
             tintedImageCache[cacheKey] = tintedUrl;
+            saveTintToDB(cacheKey, tintedUrl);
             callback(tintedUrl);
         } catch (e) {
             // CORS error - cache the failure and use CSS filter fallback
