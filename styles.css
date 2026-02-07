@@ -368,6 +368,11 @@ body {
     position: relative;
     margin: 0 -0.5rem;
     padding: 0 0.5rem;
+    transform: scaleY(-1);
+}
+
+#ctf-table-container > * {
+    transform: scaleY(-1);
 }
 
 #ctf-table-container::-webkit-scrollbar {

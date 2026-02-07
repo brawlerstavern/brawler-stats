@@ -92,8 +92,13 @@ def process_firebase_export(users_file, guilds_file, output_dir='data'):
         for field in ['rating', 'highestRating', 'brawls', 'wins', 'leaves', 'winStreak']:
             user_data[f'stats.teamBrawl.{field}'] = teamBrawl.get(field, 0) or 0
         
+        # Event stats
+        event = stats.get('event', {}) or {}
+        for field in ['games', 'soloWins', 'teamWins']:
+            user_data[f'stats.event.{field}'] = event.get(field, 0) or 0
+
         # CTF stats
-        ctf = stats.get('event', {}).get('ctf', {}) or {}
+        ctf = event.get('ctf', {}) or {}
         for field in ['captures', 'charges', 'defenses', 'escorts', 'games', 'recovers', 'wins']:
             user_data[f'stats.event.ctf.{field}'] = ctf.get(field, 0) or 0
         

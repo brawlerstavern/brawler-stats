@@ -502,6 +502,30 @@ function calculateBrawlScore(player) {
     return Math.min(10, Math.max(0, totalScore / 10)); // Normalize to 0-10
 }
 
+function calculateBrawlScores(player) {
+    const brawls = player['stats.brawl.brawls'] || 0;
+    if (brawls < 25) return null;
+    const finishes = player['stats.brawl.traits.finishes'] || 0;
+    if (finishes === 0) return null;
+
+    const swings = player['stats.brawl.traits.swings'] || 1;
+    const hits = player['stats.brawl.traits.hits'] || 0;
+    const hurts = player['stats.brawl.traits.hurts'] || 0;
+    const combos = player['stats.brawl.traits.combos'] || 0;
+    const counters = player['stats.brawl.traits.counters'] || 0;
+    const counterAttempts = player['stats.brawl.traits.counterAttempts'] || 1;
+    const evasiveBrawls = player['stats.brawl.traits.evasiveBrawls'] || 0;
+
+    return {
+        overall: calculateBrawlScore(player),
+        accuracy: Math.min(10, (hits / swings / 0.05)),
+        efficiency: Math.min(10, Math.max(0, (20 - (hurts / finishes)) / 1.5)),
+        evasion: Math.min(10, (evasiveBrawls / finishes / 0.07)),
+        combos: Math.min(10, (combos / finishes / 0.18)),
+        counters: Math.min(10, (counters / counterAttempts / 0.045)),
+    };
+}
+
 function calculateTraits(player) {
     const finishes = player['stats.brawl.traits.finishes'] || 0;
     if (finishes === 0) return { traits: [], styles: [] };
@@ -908,7 +932,7 @@ function renderBrawlers() {
         const brawlScore = calculateBrawlScore(player);
         const brawlScoreBadge = brawlScore !== null ? `
             <div class="stat-item">
-                <div class="stat-label">Brawl Score</div>
+                <div class="stat-label">Overall</div>
                 <div class="stat-value"><span class="score-badge">${formatNumber(brawlScore)}</span></div>
             </div>
         ` : '';
@@ -1048,7 +1072,7 @@ function renderSoloLeaderboard() {
                     <th>Rating</th>
                     <th>Record</th>
                     <th>Win Rate</th>
-                    <th>Score</th>
+                    <th>Overall</th>
                 </tr>
             </thead>
             <tbody>
@@ -1056,7 +1080,7 @@ function renderSoloLeaderboard() {
             </tbody>
         </table>
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-            <strong style="color: var(--accent-gold);">Brawl Score Calculation:</strong> Data-driven weights from correlation analysis with rating:<br>
+            <strong style="color: var(--accent-gold);">Overall Score Calculation:</strong> Data-driven weights from correlation analysis with rating:<br>
             <strong>Efficiency (24.8%):</strong> Damage taken per finish (inverse) - <em>strongest predictor</em><br>
             <strong>Counter Success (24.4%):</strong> Successful counter rate<br>
             <strong>Combos (20.5%):</strong> Average combos per finish<br>
@@ -1363,7 +1387,7 @@ function renderTraitsLeaderboard(filter = '') {
                 <tr>
                     <th>Rank</th>
                     <th>Brawler</th>
-                    <th>Brawl Score</th>
+                    <th>Overall</th>
                     ${traitHeader}
                     <th>Accuracy</th>
                     <th>Efficiency</th>
@@ -1504,7 +1528,7 @@ function showPlayerModal(username) {
     if (brawlScore !== null) {
         statsHTML += `
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Brawl Score</div>
+                <div class="modal-stat-label">Overall</div>
                 <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScore)}</span></div>
             </div>
         `;
@@ -1583,6 +1607,27 @@ function showPlayerModal(username) {
         }
     }
 
+    // Event stats
+    const eventGames = player['stats.event.games'] || 0;
+    if (eventGames > 0) {
+        const eventSoloWins = player['stats.event.soloWins'] || 0;
+        const eventTeamWins = player['stats.event.teamWins'] || 0;
+        statsHTML += `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Event Games</div>
+                <div class="modal-stat-value">${eventGames}</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Event Solo Wins</div>
+                <div class="modal-stat-value">${eventSoloWins}</div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Event Team Wins</div>
+                <div class="modal-stat-value">${eventTeamWins}</div>
+            </div>
+        `;
+    }
+
     document.getElementById('modal-stats').innerHTML = statsHTML;
 
     // Traits
@@ -1595,9 +1640,46 @@ function showPlayerModal(username) {
         ? analysis.styles.map(s => `<div class="style-badge">${s}</div>`).join('')
         : '<div class="no-data" style="padding: 1rem;">No styles calculated yet</div>';
 
+    // Brawler Stats
+    const brawlScores = calculateBrawlScores(player);
+    const brawlStatsSection = document.getElementById('modal-brawl-stats-section');
+    if (brawlScores) {
+        brawlStatsSection.style.display = '';
+        document.getElementById('modal-brawl-scores').innerHTML = `
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Overall</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.overall)}</span></div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Accuracy</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.accuracy)}</span></div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Efficiency</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.efficiency)}</span></div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Evasion</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.evasion)}</span></div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Combos</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.combos)}</span></div>
+            </div>
+            <div class="modal-stat-card">
+                <div class="modal-stat-label">Counters</div>
+                <div class="modal-stat-value"><span class="score-badge">${formatNumber(brawlScores.counters)}</span></div>
+            </div>
+        `;
+    } else {
+        brawlStatsSection.style.display = 'none';
+    }
+
     // CTF
     const ctfGames = player['stats.event.ctf.games'] || 0;
+    const ctfSection = document.getElementById('modal-ctf-section');
     if (ctfGames > 0) {
+        ctfSection.style.display = '';
         const ctfScores = calculateCTFScores(player);
         if (ctfScores) {
             document.getElementById('modal-ctf').innerHTML = `
@@ -1616,7 +1698,7 @@ function showPlayerModal(username) {
             `;
         }
     } else {
-        document.getElementById('modal-ctf').innerHTML = '<div class="no-data" style="padding: 1rem;">No CTF games played</div>';
+        ctfSection.style.display = 'none';
     }
 
     modal.classList.add('active');
