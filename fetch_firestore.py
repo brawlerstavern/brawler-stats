@@ -150,43 +150,66 @@ def process_users(users_raw):
 
 
 def fetch_guild_members(db, guilds_raw):
-    """Fetch members subcollection for all guilds to get rank data."""
+    """Fetch members subcollection for all guilds to get rank data.
+
+    Member docs have auto-generated IDs and contain:
+      - user: DocumentReference to users/{userId}
+      - rank: integer (index into guild's ranks array)
+    Guild docs have a 'ranks' field mapping rank indices to names.
+    """
     print("  Fetching guild member ranks...", end=" ", flush=True)
-    guild_members = {}
+    guild_members = {}  # {guild_id: {user_id: rank_number}}
     for guild_id in guilds_raw:
         members_ref = db.collection("guilds").document(guild_id).collection("members")
         members = members_ref.get()
         for doc in members:
             data = doc.to_dict()
-            if data:
-                guild_members.setdefault(guild_id, {})[doc.id] = data
+            if data and "user" in data:
+                # Extract user ID from the DocumentReference
+                user_ref = data["user"]
+                if hasattr(user_ref, "id"):
+                    user_id = user_ref.id
+                elif hasattr(user_ref, "path"):
+                    user_id = user_ref.path.split("/")[-1]
+                else:
+                    continue
+                rank_num = data.get("rank", 0)
+                guild_members.setdefault(guild_id, {})[user_id] = rank_num
     total = sum(len(v) for v in guild_members.values())
     print(f"{total} member records across {len(guild_members)} guilds")
-    # Debug: show sample member doc IDs, fields, and data
-    for gid, members_dict in list(guild_members.items())[:2]:
-        sample_ids = list(members_dict.keys())[:3]
-        print(f"    Guild {gid}: doc IDs = {sample_ids}")
-        for sid in sample_ids[:1]:
-            print(f"      Data: {members_dict[sid]}")
-    # Debug: also check guild document fields to see if rank data is stored there
-    if guild_members:
-        print(f"  (Subcollection approach found {total} member docs)")
-    else:
-        print("  WARNING: No member subcollection docs found!")
-    # Check first guild document for a 'members' map field
-    for guild_id, guild_data in list(guilds_raw.items())[:2]:
-        fields = list(guild_data.keys()) if guild_data else []
-        print(f"    Guild doc {guild_id} fields: {fields}")
-        if "members" in guild_data and isinstance(guild_data["members"], dict):
-            sample = list(guild_data["members"].items())[:2]
-            print(f"    Guild doc has 'members' map: {sample}")
     return guild_members
 
 
 def process_guilds(guilds_raw, users_data, guild_members=None):
-    """Process raw Firestore guild documents and attach members."""
+    """Process raw Firestore guild documents and attach members.
+
+    guild_members is {guild_id: {user_id: rank_number}}.
+    Guild docs have a 'ranks' array mapping rank indices to rank info.
+    """
     if guild_members is None:
         guild_members = {}
+
+    # Build rank name lookup: {guild_id: {rank_number: rank_name}}
+    guild_rank_names = {}
+    for guild_id, guild in guilds_raw.items():
+        if not guild:
+            continue
+        ranks_data = guild.get("ranks", [])
+        rank_map = {}
+        if isinstance(ranks_data, list):
+            for i, r in enumerate(ranks_data):
+                if isinstance(r, dict):
+                    rank_map[i] = r.get("name", "")
+                elif isinstance(r, str):
+                    rank_map[i] = r
+        elif isinstance(ranks_data, dict):
+            for k, v in ranks_data.items():
+                idx = int(k) if str(k).isdigit() else k
+                if isinstance(v, dict):
+                    rank_map[idx] = v.get("name", "")
+                elif isinstance(v, str):
+                    rank_map[idx] = v
+        guild_rank_names[guild_id] = rank_map
 
     guilds_data = {}
     for guild_id, guild in guilds_raw.items():
@@ -211,14 +234,15 @@ def process_guilds(guilds_raw, users_data, guild_members=None):
                 guild_rep = user.get(f"stats.guildReputation.{guild_tag}", 0)
 
                 # Look up rank from members subcollection
-                # Try matching by user document ID first, then by username
                 rank = ""
                 user_id = user.get("id", "")
-                username = user.get("username", "")
-                if guild_id in guild_members:
-                    member_doc = guild_members[guild_id].get(user_id) or guild_members[guild_id].get(username)
-                    if member_doc:
-                        rank = member_doc.get("rank", "")
+                if guild_id in guild_members and user_id in guild_members[guild_id]:
+                    rank_num = guild_members[guild_id][user_id]
+                    # Resolve rank number to name using guild's ranks array
+                    rank_map = guild_rank_names.get(guild_id, {})
+                    rank = rank_map.get(rank_num, "")
+                    if not rank and rank_num is not None:
+                        rank = str(rank_num)  # Fallback: show number if no name found
 
                 guilds_data[guild_ref]["members"].append({
                     "username": user["username"],
@@ -230,10 +254,14 @@ def process_guilds(guilds_raw, users_data, guild_members=None):
                     "rank": rank,
                 })
 
-    # Debug: count how many ranks were matched
+    # Debug: count how many ranks were matched and show sample rank names
     rank_count = sum(1 for g in guilds_data.values() for m in g["members"] if m["rank"])
     total_members = sum(len(g["members"]) for g in guilds_data.values())
     print(f"  Matched {rank_count}/{total_members} guild member ranks")
+    # Show sample rank name mappings
+    for gid, rmap in list(guild_rank_names.items())[:2]:
+        if rmap:
+            print(f"    Guild {gid} rank names: {rmap}")
 
     return guilds_data
 
