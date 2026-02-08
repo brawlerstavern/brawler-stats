@@ -143,9 +143,9 @@ function tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, cal
     } else if (!darkColor || darkColor === 255 || darkColor === 4294967295) {
         // Default tintDarkColor (255) — derive dark color from tintColor
         // This produces natural shadows (e.g., beige skin gets tan shadows, not black)
-        r0 = Math.round(r1 * 0.35);
-        g0 = Math.round(g1 * 0.35);
-        b0 = Math.round(b1 * 0.35);
+        r0 = 0;
+        g0 = 0;
+        b0 = 0;
     } else {
         r0 = (darkColor >> 24) & 0xFF;
         g0 = (darkColor >> 16) & 0xFF;
@@ -1981,7 +1981,14 @@ function showGuildModal(guildRef) {
     document.getElementById('guild-modal-tag').textContent = `[${guild.tag}]`;
     document.getElementById('guild-modal-description').textContent = guild.description || guild.motd || '';
 
-    const membersHTML = guild.members.map(member => {
+    const rankOrder = {'Leader': 0, 'Co-Leader': 1, 'Officer': 2, 'Member': 3, 'Recruit': 4};
+    const sortedMembers = [...guild.members].sort((a, b) => {
+        const ra = a.rank in rankOrder ? rankOrder[a.rank] : 99;
+        const rb = b.rank in rankOrder ? rankOrder[b.rank] : 99;
+        return ra - rb;
+    });
+
+    const membersHTML = sortedMembers.map(member => {
         const rankBadge = member.rank ? `<span style="font-size: 0.75rem; background: var(--accent-red); color: var(--text-primary); padding: 0.15rem 0.5rem; border-radius: 3px; margin-left: 0.5rem; text-transform: capitalize;">${member.rank}</span>` : '';
         return `
         <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">
