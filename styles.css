@@ -745,18 +745,26 @@ body {
 }
 
 .score-badge.score-elite {
-    background: linear-gradient(135deg, #f0e6d0 0%, #d4c4a8 100%);
-    border-color: #f0e6d0;
+    background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%);
+    border-color: #ffd54f;
     color: #1a1410;
-    box-shadow: 0 0 12px rgba(240, 230, 208, 0.5);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
 }
 
 .score-badge.score-legendary {
     background: linear-gradient(135deg, #f5f0e8 0%, #e0d8cc 100%);
-    border-color: #f5f0e8;
+    border-color: #6ab0ff;
     color: #1a1410;
-    box-shadow: 0 0 15px rgba(100, 160, 255, 0.6), 0 0 30px rgba(100, 160, 255, 0.3);
-    text-shadow: 0 0 4px rgba(100, 160, 255, 0.4);
+    box-shadow: 0 0 10px rgba(100, 160, 255, 0.7), 0 0 25px rgba(100, 160, 255, 0.4);
+    text-shadow: 0 0 3px rgba(100, 160, 255, 0.3);
+}
+
+.score-badge.score-mythic {
+    background: linear-gradient(135deg, #e8fffe 0%, #b0f0ff 100%);
+    border-color: #44e8ff;
+    color: #1a1410;
+    box-shadow: 0 0 12px rgba(68, 232, 255, 0.7), 0 0 30px rgba(68, 232, 255, 0.4);
+    text-shadow: 0 0 4px rgba(68, 232, 255, 0.3);
 }
 
 .ctf-tabs {

@@ -286,11 +286,65 @@ function formatScore(score) {
     return Math.round(score * 10);
 }
 
+const TOOLTIPS = {
+    // Brawl stat scores
+    'OVR': 'Overall brawl score — weighted average of all combat stats',
+    'Accuracy': 'Hit rate — percentage of swings that land',
+    'Efficiency': 'Damage taken per finish — lower damage taken = higher score',
+    'Evasion': 'Evasive brawl rate — percentage of fights where you take very little damage',
+    'Combos': 'Average combos landed per fight finish',
+    'Counters': 'Counter success rate — percentage of counter attempts that land',
+    // CTF scores
+    'CTF OVR': 'Overall CTF score — Max(OFF,DEF) × 0.75 + Min(OFF,DEF) × 0.25',
+    'OFF': 'Offensive score — captures, charges, and escorts per game',
+    'DEF': 'Defensive score — defenses and recovers per game',
+    // Combat traits
+    'Decisive Victor': 'Wins fights quickly with minimal damage taken (≤5 hurts/finish)',
+    'Deadly Accurate': 'Extremely high hit rate (≥36% accuracy)',
+    'Accurate': 'High hit rate (≥30% accuracy)',
+    'Attack Spammer': 'Swings frequently but with low accuracy (<20%)',
+    'Untouchable': 'Rarely gets hit — very high evasion rate (≥60%)',
+    'Evasive': 'Hard to hit — high evasion rate (≥50%)',
+    'Perfect Timing': 'Lands perfect combos at a high rate (≥20% of combos are perfect)',
+    'Excellent Combos': 'Exceptional combo rate (≥1.4 combos/finish)',
+    'Great Combos': 'Strong combo rate (≥1.2 combos/finish)',
+    'Good Combos': 'Solid combo rate (≥1.0 combos/finish)',
+    'Excellent Counters': 'Exceptional counter rate (≥35% success)',
+    'Great Counters': 'Strong counter rate (≥30% success)',
+    'Good Counters': 'Solid counter rate (≥25% success)',
+    'Quitter': 'Leaves matches frequently (>5% quit rate)',
+    // Fighting styles
+    'Defensive': 'Long fight duration — plays cautiously and waits for openings',
+    'Offensive': 'Short fight duration — aggressive and finishes fights quickly',
+    'Balanced': 'Moderate fight duration — mixes offense and defense',
+    'Northwest': 'Tends to position in the northwest area of the arena',
+    'Northeast': 'Tends to position in the northeast area of the arena',
+    'North': 'Tends to position in the north area of the arena',
+    'Southwest': 'Tends to position in the southwest area of the arena',
+    'Southeast': 'Tends to position in the southeast area of the arena',
+    'South': 'Tends to position in the south area of the arena',
+    'West': 'Tends to position on the west side of the arena',
+    'East': 'Tends to position on the east side of the arena',
+    'Center Control': 'Spends more time near the center than the walls',
+    'Wall Hugger': 'Spends most of the fight near the walls (>50%)',
+    'Wall Control': 'Uses walls strategically while controlling space',
+    'Side Slasher': 'Favors horizontal/side swings (≥60% of attacks)',
+    'Vertical Slasher': 'Favors vertical swings (≥60% of attacks)',
+    'Gambler': 'Takes risky gamble attacks frequently (>30% of hits)',
+    'Trades Well': 'Frequently trades damage effectively after getting hit',
+    'Retaliator': 'Fights back immediately after taking damage',
+};
+
+function tip(label) {
+    return TOOLTIPS[label] ? ` title="${TOOLTIPS[label]}"` : '';
+}
+
 function scoreBadgeHTML(score, preformatted) {
     const value = preformatted ? score : formatScore(score);
     const numValue = typeof value === 'number' ? value : parseInt(value, 10);
     let tierClass = '';
-    if (numValue >= 95) tierClass = ' score-legendary';
+    if (numValue >= 99) tierClass = ' score-mythic';
+    else if (numValue >= 95) tierClass = ' score-legendary';
     else if (numValue >= 90) tierClass = ' score-elite';
     else if (numValue >= 80) tierClass = ' score-high';
     return `<span class="score-badge${tierClass}">${value}</span>`;
@@ -440,23 +494,18 @@ function calculateCTFScores(player) {
     const normRecovers = normalize(recoversPerGame, ctfNormStats.minRecovers, ctfNormStats.maxRecovers);
 
     // Calculate composite scores with normalized stats
-    let offensive = (normCaptures + normCharges + normEscorts) / 3;
-    let defensive = (normDefenses + normRecovers + normEscorts) / 3; // Escorts is defensive too
-    let overall = Math.max(offensive, defensive);
+    let offensive = Math.min((normCaptures + normCharges + normEscorts) / 3, 10);
+    let defensive = Math.min((normDefenses + normRecovers + normEscorts) / 3, 10);
+    let overall = Math.min(Math.max(offensive, defensive) * 0.75 + Math.min(offensive, defensive) * 0.25, 10);
 
-    // Add win rate bonus: 0.1 per 1% over 50%, max +5
-    const winRatePercent = winRate * 100;
-    if (winRatePercent > 50) {
-        const bonus = Math.min((winRatePercent - 50) * 0.1, 5);
-        offensive = Math.min(offensive + bonus, 10);
-        defensive = Math.min(defensive + bonus, 10);
-        overall = Math.min(overall + bonus, 10);
+    // Scale up CTF scores: 1 - (1 - x)^2 curve so 85→98, 70→91
+    function scaleCTF(s) {
+        const x = Math.max(0, Math.min(1, s / 10));
+        return (1 - Math.pow(1 - x, 2)) * 10;
     }
-
-    // Cap all scores at 10
-    offensive = Math.min(offensive, 10);
-    defensive = Math.min(defensive, 10);
-    overall = Math.min(overall, 10);
+    offensive = scaleCTF(offensive);
+    defensive = scaleCTF(defensive);
+    overall = scaleCTF(overall);
 
     return {
         winRate,
@@ -1211,7 +1260,7 @@ function renderSoloLeaderboard() {
                     <th>Rating</th>
                     <th>Record</th>
                     <th>Win Rate</th>
-                    <th>OVR</th>
+                    <th${tip('OVR')}>OVR</th>
                 </tr>
             </thead>
             <tbody>
@@ -1378,13 +1427,13 @@ function renderCTFLeaderboard(tab = 'winrate') {
 
     let headers = '';
     if (tab === 'all') {
-        headers = '<th>Rank</th><th>Brawler</th><th>OVR</th><th>OFF</th><th>DEF</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Defenses/g</th><th>Escorts/g</th><th>Recovers/g</th><th>Record</th>';
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th${tip('OFF')}>OFF</th><th${tip('DEF')}>DEF</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Defenses/g</th><th>Escorts/g</th><th>Recovers/g</th><th>Record</th>`;
     } else if (tab === 'overall') {
-        headers = '<th>Rank</th><th>Brawler</th><th>OVR</th><th>Record</th>';
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th>Record</th>`;
     } else if (tab === 'offensive') {
-        headers = '<th>Rank</th><th>Brawler</th><th>OFF</th><th>Record</th>';
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('OFF')}>OFF</th><th>Record</th>`;
     } else if (tab === 'defensive') {
-        headers = '<th>Rank</th><th>Brawler</th><th>DEF</th><th>Record</th>';
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('DEF')}>DEF</th><th>Record</th>`;
     } else if (tab === 'winrate') {
         headers = '<th>Rank</th><th>Brawler</th><th>Win Rate</th><th>Record</th>';
     }
@@ -1399,11 +1448,10 @@ function renderCTFLeaderboard(tab = 'winrate') {
     document.getElementById('ctf-methodology').innerHTML = `
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
             <strong style="color: var(--accent-gold);">CTF Score Calculation:</strong><br>
-            <strong>OVR:</strong> Max(OFF, DEF) + Win Rate Bonus<br>
+            <strong>OVR:</strong> Max(OFF, DEF) × 0.75 + Min(OFF, DEF) × 0.25<br>
             <strong>OFF:</strong> Average of normalized Captures, Charges, and Escorts<br>
             <strong>DEF:</strong> Average of normalized Defenses, Recovers, and Escorts<br>
-            <strong>Win Rate Bonus:</strong> +0.1 per 1% win rate over 50% (max +5)<br>
-            All scores normalized to 0-10 scale and capped at 10. Minimum 20 games required.
+            All scores normalized to 0-100 scale. Minimum 20 games required.
         </div>
     `;
     makeTablesSortable();
@@ -1523,7 +1571,7 @@ function renderTraitsLeaderboard(filter = '') {
         `;
     }).join('');
 
-    const traitHeader = selectedTrait ? `<th>${selectedTrait}</th>` : '';
+    const traitHeader = selectedTrait ? `<th${tip(selectedTrait)}>${selectedTrait}</th>` : '';
 
     container.innerHTML = `
         <table class="leaderboard-table">
@@ -1531,13 +1579,13 @@ function renderTraitsLeaderboard(filter = '') {
                 <tr>
                     <th>Rank</th>
                     <th>Brawler</th>
-                    <th>OVR</th>
+                    <th${tip('OVR')}>OVR</th>
                     ${traitHeader}
-                    <th>Accuracy</th>
-                    <th>Efficiency</th>
-                    <th>Evasion</th>
-                    <th>Combos</th>
-                    <th>Counters</th>
+                    <th${tip('Accuracy')}>Accuracy</th>
+                    <th${tip('Efficiency')}>Efficiency</th>
+                    <th${tip('Evasion')}>Evasion</th>
+                    <th${tip('Combos')}>Combos</th>
+                    <th${tip('Counters')}>Counters</th>
                     <th>Tier</th>
                 </tr>
             </thead>
@@ -1632,17 +1680,16 @@ function renderGuildLeaderboard() {
 // EVENTS LEADERBOARD
 function renderEventsLeaderboard() {
     const container = document.getElementById('events-table-container');
-    const eligible = usersData.filter(u => (u['stats.event.games'] || 0) > 0);
+    const eligible = usersData.filter(u => (u['stats.event.games'] || 0) >= 25);
 
     const withScores = eligible.map(player => {
         const games = player['stats.event.games'] || 0;
         const soloWins = player['stats.event.soloWins'] || 0;
         const teamWins = player['stats.event.teamWins'] || 0;
-        const eventOVR = games > 0 ? Math.round((soloWins + teamWins) / games * 100) : 0;
-        return { player, games, soloWins, teamWins, eventOVR };
+        return { player, games, soloWins, teamWins };
     });
 
-    withScores.sort((a, b) => b.eventOVR - a.eventOVR);
+    withScores.sort((a, b) => b.games - a.games);
 
     if (withScores.length === 0) {
         container.innerHTML = '<div class="no-data">No event data available</div>';
@@ -1650,7 +1697,7 @@ function renderEventsLeaderboard() {
     }
 
     const rows = withScores.map((item, index) => {
-        const { player, games, soloWins, teamWins, eventOVR } = item;
+        const { player, games, soloWins, teamWins } = item;
         const rank = index + 1;
 
         let rankClass = '';
@@ -1668,7 +1715,6 @@ function renderEventsLeaderboard() {
                         <span class="player-nickname">${player.nickname || ''}</span>
                     </div>
                 </td>
-                <td>${scoreBadgeHTML(eventOVR, true)}</td>
                 <td>${games}</td>
                 <td>${soloWins}</td>
                 <td>${teamWins}</td>
@@ -1682,7 +1728,6 @@ function renderEventsLeaderboard() {
                 <tr>
                     <th>Rank</th>
                     <th>Brawler</th>
-                    <th>Event OVR</th>
                     <th>Games</th>
                     <th>Solo Wins</th>
                     <th>Team Wins</th>
@@ -1854,11 +1899,11 @@ function showPlayerModal(username) {
     // Traits
     const analysis = calculateTraits(player);
     document.getElementById('modal-traits').innerHTML = analysis.traits.length > 0
-        ? analysis.traits.map(t => `<div class="trait-badge">${t}</div>`).join('')
+        ? analysis.traits.map(t => `<div class="trait-badge"${tip(t)}>${t}</div>`).join('')
         : '<div class="no-data" style="padding: 1rem;">No traits calculated yet</div>';
-    
+
     document.getElementById('modal-styles').innerHTML = analysis.styles.length > 0
-        ? analysis.styles.map(s => `<div class="style-badge">${s}</div>`).join('')
+        ? analysis.styles.map(s => `<div class="style-badge"${tip(s)}>${s}</div>`).join('')
         : '<div class="no-data" style="padding: 1rem;">No styles calculated yet</div>';
 
     // Brawler Stats
@@ -1868,27 +1913,27 @@ function showPlayerModal(username) {
         brawlStatsSection.style.display = '';
         document.getElementById('modal-brawl-scores').innerHTML = `
             <div class="modal-stat-card">
-                <div class="modal-stat-label">OVR</div>
+                <div class="modal-stat-label"${tip('OVR')}>OVR</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.overall)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Accuracy</div>
+                <div class="modal-stat-label"${tip('Accuracy')}>Accuracy</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.accuracy)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Efficiency</div>
+                <div class="modal-stat-label"${tip('Efficiency')}>Efficiency</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.efficiency)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Evasion</div>
+                <div class="modal-stat-label"${tip('Evasion')}>Evasion</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.evasion)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Combos</div>
+                <div class="modal-stat-label"${tip('Combos')}>Combos</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.combos)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">Counters</div>
+                <div class="modal-stat-label"${tip('Counters')}>Counters</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(brawlScores.counters)}</div>
             </div>
         `;
@@ -1904,15 +1949,15 @@ function showPlayerModal(username) {
         ctfSection.style.display = '';
         document.getElementById('modal-ctf').innerHTML = `
             <div class="modal-stat-card">
-                <div class="modal-stat-label">CTF OVR</div>
+                <div class="modal-stat-label"${tip('CTF OVR')}>CTF OVR</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.overall)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">OFF</div>
+                <div class="modal-stat-label"${tip('OFF')}>OFF</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.offensive)}</div>
             </div>
             <div class="modal-stat-card">
-                <div class="modal-stat-label">DEF</div>
+                <div class="modal-stat-label"${tip('DEF')}>DEF</div>
                 <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.defensive)}</div>
             </div>
         `;
