@@ -162,12 +162,24 @@ def fetch_guild_members(db, guilds_raw):
                 guild_members.setdefault(guild_id, {})[doc.id] = data
     total = sum(len(v) for v in guild_members.values())
     print(f"{total} member records across {len(guild_members)} guilds")
-    # Debug: show sample member doc IDs and fields
+    # Debug: show sample member doc IDs, fields, and data
     for gid, members_dict in list(guild_members.items())[:2]:
         sample_ids = list(members_dict.keys())[:3]
         print(f"    Guild {gid}: doc IDs = {sample_ids}")
         for sid in sample_ids[:1]:
-            print(f"      Fields: {list(members_dict[sid].keys())}")
+            print(f"      Data: {members_dict[sid]}")
+    # Debug: also check guild document fields to see if rank data is stored there
+    if guild_members:
+        print(f"  (Subcollection approach found {total} member docs)")
+    else:
+        print("  WARNING: No member subcollection docs found!")
+    # Check first guild document for a 'members' map field
+    for guild_id, guild_data in list(guilds_raw.items())[:2]:
+        fields = list(guild_data.keys()) if guild_data else []
+        print(f"    Guild doc {guild_id} fields: {fields}")
+        if "members" in guild_data and isinstance(guild_data["members"], dict):
+            sample = list(guild_data["members"].items())[:2]
+            print(f"    Guild doc has 'members' map: {sample}")
     return guild_members
 
 

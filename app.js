@@ -133,20 +133,24 @@ function tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, cal
 
     // Extract tintDarkColor (for dark pixels)
     let darkColor = tintDarkColor;
+    let r0, g0, b0;
     if (isEyes) {
         // For eyes, ALWAYS use white as dark color, don't replace it with black
         darkColor = tintDarkColor || 4294967295; // Default to white if missing
+        r0 = (darkColor >> 24) & 0xFF;
+        g0 = (darkColor >> 16) & 0xFF;
+        b0 = (darkColor >> 8) & 0xFF;
+    } else if (!darkColor || darkColor === 255 || darkColor === 4294967295) {
+        // Default tintDarkColor (255) — derive dark color from tintColor
+        // This produces natural shadows (e.g., beige skin gets tan shadows, not black)
+        r0 = Math.round(r1 * 0.35);
+        g0 = Math.round(g1 * 0.35);
+        b0 = Math.round(b1 * 0.35);
     } else {
-        // For non-eyes: Special case handling
-        // 255 (0x000000FF) is black - treat as "no dark tint" and use black
-        // 4294967295 (0xFFFFFFFF) is white - also means no dark tint, use black
-        if (!darkColor || darkColor === 255 || darkColor === 4294967295) {
-            darkColor = 0x000000FF; // Black with full alpha in RGBA format
-        }
+        r0 = (darkColor >> 24) & 0xFF;
+        g0 = (darkColor >> 16) & 0xFF;
+        b0 = (darkColor >> 8) & 0xFF;
     }
-    const r0 = (darkColor >> 24) & 0xFF;
-    const g0 = (darkColor >> 16) & 0xFF;
-    const b0 = (darkColor >> 8) & 0xFF;
 
     const img = new Image();
     img.crossOrigin = 'anonymous'; // Request CORS access for canvas manipulation
