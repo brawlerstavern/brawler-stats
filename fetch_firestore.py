@@ -162,6 +162,12 @@ def fetch_guild_members(db, guilds_raw):
                 guild_members.setdefault(guild_id, {})[doc.id] = data
     total = sum(len(v) for v in guild_members.values())
     print(f"{total} member records across {len(guild_members)} guilds")
+    # Debug: show sample member doc IDs and fields
+    for gid, members_dict in list(guild_members.items())[:2]:
+        sample_ids = list(members_dict.keys())[:3]
+        print(f"    Guild {gid}: doc IDs = {sample_ids}")
+        for sid in sample_ids[:1]:
+            print(f"      Fields: {list(members_dict[sid].keys())}")
     return guild_members
 
 
@@ -193,11 +199,14 @@ def process_guilds(guilds_raw, users_data, guild_members=None):
                 guild_rep = user.get(f"stats.guildReputation.{guild_tag}", 0)
 
                 # Look up rank from members subcollection
+                # Try matching by user document ID first, then by username
                 rank = ""
                 user_id = user.get("id", "")
-                if guild_id in guild_members and user_id in guild_members[guild_id]:
-                    member_doc = guild_members[guild_id][user_id]
-                    rank = member_doc.get("rank", "")
+                username = user.get("username", "")
+                if guild_id in guild_members:
+                    member_doc = guild_members[guild_id].get(user_id) or guild_members[guild_id].get(username)
+                    if member_doc:
+                        rank = member_doc.get("rank", "")
 
                 guilds_data[guild_ref]["members"].append({
                     "username": user["username"],
@@ -208,6 +217,11 @@ def process_guilds(guilds_raw, users_data, guild_members=None):
                     "teamRating": user.get("stats.teamBrawl.rating", 0),
                     "rank": rank,
                 })
+
+    # Debug: count how many ranks were matched
+    rank_count = sum(1 for g in guilds_data.values() for m in g["members"] if m["rank"])
+    total_members = sum(len(g["members"]) for g in guilds_data.values())
+    print(f"  Matched {rank_count}/{total_members} guild member ranks")
 
     return guilds_data
 

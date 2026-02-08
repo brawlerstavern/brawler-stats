@@ -410,15 +410,14 @@ function createHeadAvatar(player) {
                 if (!tintColor) tintColor = 4294967295; // Default to white if missing
             }
 
-            // Don't tint head or eyelids
-            const isHead = layer.tintKey === 'outfit.head';
+            // Don't tint eyelids
             const isEyelids = layer.path === 'eyelids';
-            const shouldSkipTinting = isHead || isEyelids;
+            const shouldSkipTinting = isEyelids;
 
             // Mark image for tinting if needed
             let dataAttr = '';
             // For eyes, ALWAYS apply tinting. For other parts, only if tintColor is set and not white
-            // But never tint head or eyelids
+            // But never tint eyelids
             if (!shouldSkipTinting && (isEyes || (tintColor && tintColor !== 4294967295))) {
                 dataAttr = ` data-tint-color="${tintColor}" data-tint-dark-color="${tintDarkColor || 0x000000FF}" data-tint-url="${url}" data-is-eyes="${isEyes}" class="needs-tinting"`;
             }
