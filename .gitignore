@@ -8,6 +8,10 @@ _site/
 __pycache__/
 *.pyc
 
+# Node
+node_modules/
+package-lock.json
+
 # Firebase raw exports
 data/users-*.json
 data/guilds-*.json

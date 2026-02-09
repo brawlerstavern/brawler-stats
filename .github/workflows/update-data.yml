@@ -44,6 +44,14 @@ jobs:
       - name: Fetch data from Firestore
         run: python fetch_firestore.py
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
       - name: Prepare site
         run: |
           mkdir -p _site/data _site/images
@@ -56,6 +64,9 @@ jobs:
           cp data/ctf_stats.json _site/data/
           cp data/brawl_stats.json _site/data/
           cp images/* _site/images/
+
+      - name: Generate OG preview screenshot
+        run: node screenshot.js
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
