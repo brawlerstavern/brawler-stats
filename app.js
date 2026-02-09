@@ -300,37 +300,37 @@ function formatScore(score) {
 
 const TOOLTIPS = {
     // Brawl stat scores
-    'OVR': 'Overall brawl score — weighted average of all combat stats',
-    'Accuracy': 'Hit rate score — based on percentage of swings that land',
-    'Efficiency': 'Damage taken per finish — lower damage taken = higher score',
-    'Evasion': 'Attack dodge score',
-    'Combos': 'Based on average combos landed per brawl',
-    'Counters': 'Based on percentage of counter attempts that land',
+    'OVR': 'Overall brawl score - weighted average of all combat stats',
+    'Accuracy': 'Accuracy rate - percentage of swings that land',
+    'Efficiency': 'Efficiency rate - damage taken per brawl',
+    'Evasion': 'Evasion rate - dodge rate of nearby attacks',
+    'Combos': 'Combo rate - hits landed in rapid succession',
+    'Counters': 'Counter rate - hits landed after dodging successfully',
     // CTF scores
-    'CTF OVR': 'Overall CTF score — Max(OFF,DEF) × 0.75 + Min(OFF,DEF) × 0.25',
-    'OFF': 'Offensive score — captures, charges, and escorts per game',
-    'DEF': 'Defensive score — defenses and recovers per game',
+    'CTF OVR': 'Overall CTF score - derived from offense and defense scores',
+    'OFF': 'Offensive score - captures, charges, and escorts per game',
+    'DEF': 'Defensive score - defenses and recovers per game',
     'Caps/g': 'Flag captures per game',
-    'Charges/g': 'Flag charges (carrying progress) per game',
-    'Defenses/g': 'Flag defenses per game',
-    'Escorts/g': 'Flag carrier escorts per game',
-    'Recovers/g': 'Flag recovers per game',
+    'Charges/g': 'Hits near the enemy flag or flag carrier per game',
+    'Defenses/g': 'Hits landed near your flag, near your base, per game',
+    'Escorts/g': 'Hits landed near your flag carrier per game',
+    'Recovers/g': 'Flag recoveries per game',
     'Record': 'Wins / Total Games',
     // Combat traits
-    'Decisive Victor': 'Wins fights quickly with minimal damage taken (≤5 hurts/finish)',
-    'Deadly Accurate': 'Extremely high hit rate (≥36% accuracy)',
-    'Accurate': 'High hit rate (≥30% accuracy)',
-    'Attack Spammer': 'Swings frequently but with low accuracy (<20%)',
-    'Untouchable': 'Rarely gets hit — very high evasion rate (≥60%)',
-    'Evasive': 'Hard to hit — high evasion rate (≥50%)',
-    'Perfect Timing': 'Lands perfect combos at a high rate (≥20% of combos are perfect)',
-    'Excellent Combos': 'Exceptional combo rate (≥1.4 combos/finish)',
-    'Great Combos': 'Strong combo rate (≥1.2 combos/finish)',
-    'Good Combos': 'Solid combo rate (≥1.0 combos/finish)',
-    'Excellent Counters': 'Exceptional counter rate (≥35% success)',
-    'Great Counters': 'Strong counter rate (≥30% success)',
-    'Good Counters': 'Solid counter rate (≥25% success)',
-    'Quitter': 'Leaves matches frequently (>5% quit rate)',
+    'Decisive Victor': 'Wins fights quickly with minimal damage taken',
+    'Deadly Accurate': 'Tendency to land attacks with extremely high accuracy',
+    'Accurate': 'Tendency to land attacks with high accuracy',
+    'Attack Spammer': 'Swings frequently with low accuracy',
+    'Untouchable': 'Rarely gets hit — very high evasion rate',
+    'Evasive': 'Dodges frequently and is hard to hit',
+    'Perfect Timing': 'Lands faster combos',
+    'Excellent Combos': 'Exceptional combo rate - hits landed in rapid succession',
+    'Great Combos': 'Strong combo rate - hits landed in rapid succession',
+    'Good Combos': 'Solid combo rate - hits landed in rapid succession',
+    'Excellent Counters': 'Exceptional counter rate - hits landed after dodging successfully',
+    'Great Counters': 'Strong counter rate - hits landed after dodging successfully',
+    'Good Counters': 'Solid counter rate - hits landed after dodging successfully',
+    'Quitter': 'Leaves matches frequently',
     // Fighting styles
     'Defensive': 'Long fight duration — plays cautiously and waits for openings',
     'Offensive': 'Short fight duration — aggressive and finishes fights quickly',
@@ -344,13 +344,13 @@ const TOOLTIPS = {
     'West': 'Tends to position on the west side of the arena',
     'East': 'Tends to position on the east side of the arena',
     'Center Control': 'Spends more time near the center than the walls',
-    'Wall Hugger': 'Spends most of the fight near the walls (>50%)',
+    'Wall Hugger': 'Spends most of the fight near the walls',
     'Wall Control': 'Uses walls strategically while controlling space',
-    'Side Slasher': 'Favors horizontal/side swings (≥60% of attacks)',
-    'Vertical Slasher': 'Favors vertical swings (≥60% of attacks)',
-    'Gambler': 'Takes risky gamble attacks frequently (>30% of hits)',
-    'Trades Well': 'Frequently trades damage effectively after getting hit',
-    'Retaliator': 'Fights back immediately after taking damage',
+    'Side Slasher': 'Favors horizontal/side swings',
+    'Vertical Slasher': 'Favors vertical swings',
+    'Gambler': 'Takes risky gamble attacks frequently',
+    'Trades Well': 'Tendency to trade damage effectively after getting hit',
+    'Retaliator': 'Hits back immediately after taking damage',
 };
 
 function tip(label) {
@@ -2001,7 +2001,14 @@ function showGuildModal(guildRef) {
     document.getElementById('guild-modal-tag').textContent = `[${guild.tag}]`;
     document.getElementById('guild-modal-description').textContent = guild.description || guild.motd || '';
 
-    const membersHTML = guild.members.map(member => {
+    const rankOrder = { 'Leader': 0, 'Co-Leader': 1, 'Officer': 2, 'Member': 3, 'Recruit': 4 };
+    const sortedMembers = [...guild.members].sort((a, b) => {
+        const ra = rankOrder[a.rank] !== undefined ? rankOrder[a.rank] : 3;
+        const rb = rankOrder[b.rank] !== undefined ? rankOrder[b.rank] : 3;
+        return ra - rb;
+    });
+
+    const membersHTML = sortedMembers.map(member => {
         const rankBadge = member.rank ? `<span style="font-size: 0.75rem; background: var(--accent-red); color: var(--text-primary); padding: 0.15rem 0.5rem; border-radius: 3px; margin-left: 0.5rem; text-transform: capitalize;">${member.rank}</span>` : '';
         return `
         <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">
