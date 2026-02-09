@@ -28,6 +28,9 @@
         <!-- Solo Leaderboard -->
         <section id="solo-leaderboard" class="section active">
             <h2 class="section-title">Solo Leaderboard</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'solo-table-container')">
+            </div>
             <div id="solo-table-container">
                 <div class="loading">Loading leaderboard...</div>
             </div>
@@ -36,6 +39,9 @@
         <!-- Team Leaderboard -->
         <section id="team-leaderboard" class="section">
             <h2 class="section-title">Team Leaderboard</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'team-table-container')">
+            </div>
             <div id="team-table-container">
                 <div class="loading">Loading leaderboard...</div>
             </div>
@@ -44,6 +50,9 @@
         <!-- CTF Leaderboard -->
         <section id="ctf-leaderboard" class="section">
             <h2 class="section-title">CTF Leaderboard</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'ctf-table-container')">
+            </div>
             <div class="ctf-tabs">
                 <button class="ctf-tab active" onclick="showCTFTab('all')">Overall</button>
                 <button class="ctf-tab" onclick="showCTFTab('offensive')">Offensive</button>
@@ -62,6 +71,7 @@
         <section id="traits-leaderboard" class="section">
             <h2 class="section-title">Brawl Traits</h2>
             <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'traits-table-container')">
                 <select class="filter-select" onchange="filterByTrait(this.value)">
                     <option value="">All Brawlers</option>
                     <optgroup label="Combat Traits">
@@ -111,6 +121,9 @@
         <!-- Guild Leaderboard -->
         <section id="guild-leaderboard" class="section">
             <h2 class="section-title">Guild Rankings</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search guilds..." onkeyup="filterLeaderboard(this.value, 'guild-table-container')">
+            </div>
             <div id="guild-table-container">
                 <div class="loading">Loading guilds...</div>
             </div>
@@ -119,6 +132,9 @@
         <!-- Events Leaderboard -->
         <section id="events-leaderboard" class="section">
             <h2 class="section-title">Events Leaderboard</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'events-table-container')">
+            </div>
             <div id="events-table-container">
                 <div class="loading">Loading events...</div>
             </div>

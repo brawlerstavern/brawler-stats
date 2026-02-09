@@ -141,8 +141,7 @@ function tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, cal
         g0 = (darkColor >> 16) & 0xFF;
         b0 = (darkColor >> 8) & 0xFF;
     } else if (!darkColor || darkColor === 255 || darkColor === 4294967295) {
-        // Default tintDarkColor (255) — derive dark color from tintColor
-        // This produces natural shadows (e.g., beige skin gets tan shadows, not black)
+        // Default tintDarkColor — use black
         r0 = 0;
         g0 = 0;
         b0 = 0;
@@ -169,23 +168,32 @@ function tintFromNetwork(imgUrl, tintColor, tintDarkColor, isEyes, cacheKey, cal
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
 
-            // Apply two-color tint (Construct 3 style)
-            // Dark pixels (grayscale=0) -> tintDarkColor
-            // Light pixels (grayscale=1) -> tintColor
-            // Mid-tones -> interpolated
+            // Two-color tint (Construct 3 style):
+            // 1. Compute luminance of base pixel
+            // 2. Lerp between darkColor and lightColor based on luminance
+            // 3. Multiply that tint with the base pixel color
             for (let i = 0; i < data.length; i += 4) {
-                // Skip fully transparent pixels
                 if (data[i + 3] === 0) continue;
 
-                // Convert pixel to grayscale using perceptual luminance
-                const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+                const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+                const lum = (pr * 0.299 + pg * 0.587 + pb * 0.114) / 255;
 
-                // Lerp between tintDarkColor and tintColor based on grayscale value
-                // result = tintDarkColor * (1 - gray) + tintColor * gray
-                data[i] = r0 * (1 - gray) + r1 * gray;       // R
-                data[i + 1] = g0 * (1 - gray) + g1 * gray;   // G
-                data[i + 2] = b0 * (1 - gray) + b1 * gray;   // B
-                // Alpha stays the same
+                // Mix dark/light color based on luminance
+                const tr = r0 * (1 - lum) + r1 * lum;
+                const tg = g0 * (1 - lum) + g1 * lum;
+                const tb = b0 * (1 - lum) + b1 * lum;
+
+                if (isEyes) {
+                    // Eyes: replace directly so black pixels become white
+                    data[i]     = tr;
+                    data[i + 1] = tg;
+                    data[i + 2] = tb;
+                } else {
+                    // Everything else: multiply tint with base color
+                    data[i]     = (pr * tr) / 255;
+                    data[i + 1] = (pg * tg) / 255;
+                    data[i + 2] = (pb * tb) / 255;
+                }
             }
 
             ctx.putImageData(imageData, 0, 0);
@@ -293,15 +301,21 @@ function formatScore(score) {
 const TOOLTIPS = {
     // Brawl stat scores
     'OVR': 'Overall brawl score — weighted average of all combat stats',
-    'Accuracy': 'Hit rate — percentage of swings that land',
+    'Accuracy': 'Hit rate score — based on percentage of swings that land',
     'Efficiency': 'Damage taken per finish — lower damage taken = higher score',
-    'Evasion': 'Evasive brawl rate — percentage of fights where you take very little damage',
-    'Combos': 'Average combos landed per fight finish',
-    'Counters': 'Counter success rate — percentage of counter attempts that land',
+    'Evasion': 'Attack dodge score',
+    'Combos': 'Based on average combos landed per brawl',
+    'Counters': 'Based on percentage of counter attempts that land',
     // CTF scores
     'CTF OVR': 'Overall CTF score — Max(OFF,DEF) × 0.75 + Min(OFF,DEF) × 0.25',
     'OFF': 'Offensive score — captures, charges, and escorts per game',
     'DEF': 'Defensive score — defenses and recovers per game',
+    'Caps/g': 'Flag captures per game',
+    'Charges/g': 'Flag charges (carrying progress) per game',
+    'Defenses/g': 'Flag defenses per game',
+    'Escorts/g': 'Flag carrier escorts per game',
+    'Recovers/g': 'Flag recovers per game',
+    'Record': 'Wins / Total Games',
     // Combat traits
     'Decisive Victor': 'Wins fights quickly with minimal damage taken (≤5 hurts/finish)',
     'Deadly Accurate': 'Extremely high hit rate (≥36% accuracy)',
@@ -358,8 +372,8 @@ function createHeadAvatar(player) {
     const layers = [];
     const layerConfigs = [
         { key: 'outfit.head.skinName', path: 'heads', file: 'head_down.png', tintKey: 'outfit.head' },
-        // Eyelids layer (just above head)
-        { key: 'outfit.eyes.skinName', path: 'eyelids', file: 'eyelids_down.png', tintKey: 'outfit.eyes' },
+        // Eyelids layer (just above head) — tinted with head color
+        { key: 'outfit.eyes.skinName', path: 'eyelids', file: 'eyelids_down.png', tintKey: 'outfit.head' },
         { key: 'outfit.eyes.skinName', path: 'eyes', file: 'eyes_down.png', tintKey: 'outfit.eyes', eyeLid: true },
         { key: 'outfit.eyebrows.skinName', path: 'eyebrows', file: 'eyebrows_down.png', tintKey: 'outfit.eyebrows' },
         { key: 'outfit.markings.skinName', path: 'markings', file: 'marking_down.png', tintKey: 'outfit.markings' },
@@ -414,15 +428,10 @@ function createHeadAvatar(player) {
                 if (!tintColor) tintColor = 4294967295; // Default to white if missing
             }
 
-            // Don't tint eyelids
-            const isEyelids = layer.path === 'eyelids';
-            const shouldSkipTinting = isEyelids;
-
             // Mark image for tinting if needed
             let dataAttr = '';
             // For eyes, ALWAYS apply tinting. For other parts, only if tintColor is set and not white
-            // But never tint eyelids
-            if (!shouldSkipTinting && (isEyes || (tintColor && tintColor !== 4294967295))) {
+            if (isEyes || (tintColor && tintColor !== 4294967295)) {
                 dataAttr = ` data-tint-color="${tintColor}" data-tint-dark-color="${tintDarkColor || 0x000000FF}" data-tint-url="${url}" data-is-eyes="${isEyes}" class="needs-tinting"`;
             }
 
@@ -1020,6 +1029,17 @@ function showSection(sectionId) {
     document.getElementById(sectionId).classList.add('active');
 }
 
+function filterLeaderboard(searchTerm, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const rows = container.querySelectorAll('tbody tr');
+    const term = searchTerm.toLowerCase();
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+    });
+}
+
 function filterBrawlers(searchTerm) {
     const cards = document.querySelectorAll('.brawler-card');
     const term = searchTerm.toLowerCase();
@@ -1261,7 +1281,7 @@ function renderSoloLeaderboard() {
                     <th>Brawler</th>
                     <th>Tier</th>
                     <th>Rating</th>
-                    <th>Record</th>
+                    <th${tip('Record')}>Record</th>
                     <th>Win Rate</th>
                     <th${tip('OVR')}>OVR</th>
                 </tr>
@@ -1341,7 +1361,7 @@ function renderTeamLeaderboard() {
                     <th>Brawler</th>
                     <th>Tier</th>
                     <th>Rating</th>
-                    <th>Record</th>
+                    <th${tip('Record')}>Record</th>
                     <th>Win Rate</th>
                 </tr>
             </thead>
@@ -1430,15 +1450,15 @@ function renderCTFLeaderboard(tab = 'winrate') {
 
     let headers = '';
     if (tab === 'all') {
-        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th${tip('OFF')}>OFF</th><th${tip('DEF')}>DEF</th><th>Win Rate</th><th>Caps/g</th><th>Charges/g</th><th>Defenses/g</th><th>Escorts/g</th><th>Recovers/g</th><th>Record</th>`;
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th${tip('OFF')}>OFF</th><th${tip('DEF')}>DEF</th><th>Win Rate</th><th${tip('Caps/g')}>Caps/g</th><th${tip('Charges/g')}>Charges/g</th><th${tip('Defenses/g')}>Defenses/g</th><th${tip('Escorts/g')}>Escorts/g</th><th${tip('Recovers/g')}>Recovers/g</th><th${tip('Record')}>Record</th>`;
     } else if (tab === 'overall') {
-        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th>Record</th>`;
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('CTF OVR')}>OVR</th><th${tip('Record')}>Record</th>`;
     } else if (tab === 'offensive') {
-        headers = `<th>Rank</th><th>Brawler</th><th${tip('OFF')}>OFF</th><th>Record</th>`;
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('OFF')}>OFF</th><th${tip('Record')}>Record</th>`;
     } else if (tab === 'defensive') {
-        headers = `<th>Rank</th><th>Brawler</th><th${tip('DEF')}>DEF</th><th>Record</th>`;
+        headers = `<th>Rank</th><th>Brawler</th><th${tip('DEF')}>DEF</th><th${tip('Record')}>Record</th>`;
     } else if (tab === 'winrate') {
-        headers = '<th>Rank</th><th>Brawler</th><th>Win Rate</th><th>Record</th>';
+        headers = `<th>Rank</th><th>Brawler</th><th>Win Rate</th><th${tip('Record')}>Record</th>`;
     }
 
     container.innerHTML = `
@@ -1981,14 +2001,7 @@ function showGuildModal(guildRef) {
     document.getElementById('guild-modal-tag').textContent = `[${guild.tag}]`;
     document.getElementById('guild-modal-description').textContent = guild.description || guild.motd || '';
 
-    const rankOrder = {'Leader': 0, 'Co-Leader': 1, 'Officer': 2, 'Member': 3, 'Recruit': 4};
-    const sortedMembers = [...guild.members].sort((a, b) => {
-        const ra = a.rank in rankOrder ? rankOrder[a.rank] : 99;
-        const rb = b.rank in rankOrder ? rankOrder[b.rank] : 99;
-        return ra - rb;
-    });
-
-    const membersHTML = sortedMembers.map(member => {
+    const membersHTML = guild.members.map(member => {
         const rankBadge = member.rank ? `<span style="font-size: 0.75rem; background: var(--accent-red); color: var(--text-primary); padding: 0.15rem 0.5rem; border-radius: 3px; margin-left: 0.5rem; text-transform: capitalize;">${member.rank}</span>` : '';
         return `
         <div class="guild-member-card" onclick="closeGuildModal(); showPlayerModal('${member.username}')">

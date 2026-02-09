@@ -692,7 +692,19 @@ body {
 }
 
 .filter-select {
-    max-width: 300px;
+    max-width: 350px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23d4af37' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1.2rem center;
+    padding-right: 3rem;
+}
+
+.filter-select:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 12px var(--shadow-glow);
 }
 
 .search-input:focus, .filter-select:focus {
@@ -707,6 +719,14 @@ body {
 .filter-select option {
     background: var(--bg-card);
     color: var(--text-primary);
+    padding: 0.5rem;
+}
+
+.filter-select optgroup {
+    background: var(--bg-darker);
+    color: var(--accent-gold);
+    font-weight: 700;
+    font-style: normal;
 }
 
 .loading {
