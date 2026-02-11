@@ -35,6 +35,7 @@ async function loadData() {
         renderCTFLeaderboard('all');
         renderTraitsLeaderboard();
         renderGuildLeaderboard();
+        renderGeneralLeaderboard();
         renderEventsLeaderboard();
     } catch (error) {
         console.error('Error loading data:', error);
@@ -973,7 +974,7 @@ function makeTablesSortable() {
 
                     // Special handling for "Tier" column - sort by rating instead
                     const headerText = header.textContent.trim();
-                    if (headerText.startsWith('Tier')) {
+                    if (headerText.startsWith('Tier') || headerText.startsWith('Title')) {
                         // First try to get rating from data attribute
                         const ratingA = parseFloat(cellA.getAttribute('data-rating'));
                         const ratingB = parseFloat(cellB.getAttribute('data-rating'));
@@ -1051,9 +1052,21 @@ function filterBrawlers(searchTerm) {
 }
 
 function showCTFTab(tab) {
-    document.querySelectorAll('.ctf-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('#ctf-leaderboard .ctf-tab').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
     renderCTFLeaderboard(tab);
+}
+
+function showSoloTab(tab) {
+    document.querySelectorAll('#solo-tabs .ctf-tab').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderSoloLeaderboard(tab);
+}
+
+function showTeamTab(tab) {
+    document.querySelectorAll('#team-tabs .ctf-tab').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderTeamLeaderboard(tab);
 }
 
 function filterByTrait(filter) {
@@ -1223,10 +1236,11 @@ function renderBrawlers() {
 }
 
 // SOLO LEADERBOARD
-function renderSoloLeaderboard() {
+function renderSoloLeaderboard(tab = 'current') {
     const container = document.getElementById('solo-table-container');
+    const ratingKey = tab === 'highest' ? 'stats.brawl.highestRating' : 'stats.brawl.rating';
     const eligible = usersData.filter(u => (u['stats.brawl.brawls'] || 0) >= 25 && (u['stats.brawl.wins'] || 0) > 0);
-    const sorted = eligible.sort((a, b) => (b['stats.brawl.rating'] || 0) - (a['stats.brawl.rating'] || 0));
+    const sorted = eligible.sort((a, b) => (b[ratingKey] || 0) - (a[ratingKey] || 0));
 
     if (sorted.length === 0) {
         container.innerHTML = '<div class="no-data">No eligible players (25+ brawls required)</div>';
@@ -1235,7 +1249,7 @@ function renderSoloLeaderboard() {
 
     const rows = sorted.map((player, index) => {
         const rank = index + 1;
-        const rating = player['stats.brawl.rating'] || 0;
+        const rating = player[ratingKey] || 0;
         const rankInfo = getRankInfo(rating);
         const wins = player['stats.brawl.wins'] || 0;
         const brawls = player['stats.brawl.brawls'] || 0;
@@ -1291,12 +1305,12 @@ function renderSoloLeaderboard() {
             </tbody>
         </table>
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-            <strong style="color: var(--accent-gold);">OVR Score Calculation:</strong> Data-driven weights from correlation analysis with rating:<br>
-            <strong>Efficiency (24.8%):</strong> Damage taken per finish (inverse) - <em>strongest predictor</em><br>
-            <strong>Counter Success (24.4%):</strong> Successful counter rate<br>
-            <strong>Combos (20.5%):</strong> Average combos per finish<br>
-            <strong>Accuracy (19.7%):</strong> Hit rate per swing<br>
-            <strong>Evasion (10.6%):</strong> Evasive brawls rate<br>
+            <strong style="color: var(--accent-gold);">OVR Score Calculation:</strong> Weighted composite of combat performance metrics:<br>
+            <strong>Efficiency:</strong> Damage taken per finish (inverse)<br>
+            <strong>Counter Success:</strong> Successful counter rate<br>
+            <strong>Combos:</strong> Average combos per finish<br>
+            <strong>Accuracy:</strong> Hit rate per swing<br>
+            <strong>Evasion:</strong> Evasive brawls rate<br>
             Score: 0-10 scale. Based purely on combat stats/traits. Minimum 25 brawls required.
         </div>
     `;
@@ -1305,10 +1319,11 @@ function renderSoloLeaderboard() {
 }
 
 // TEAM LEADERBOARD
-function renderTeamLeaderboard() {
+function renderTeamLeaderboard(tab = 'current') {
     const container = document.getElementById('team-table-container');
+    const ratingKey = tab === 'highest' ? 'stats.teamBrawl.highestRating' : 'stats.teamBrawl.rating';
     const eligible = usersData.filter(u => (u['stats.teamBrawl.brawls'] || 0) >= 25 && (u['stats.teamBrawl.wins'] || 0) > 0);
-    const sorted = eligible.sort((a, b) => (b['stats.teamBrawl.rating'] || 0) - (a['stats.teamBrawl.rating'] || 0));
+    const sorted = eligible.sort((a, b) => (b[ratingKey] || 0) - (a[ratingKey] || 0));
 
     if (sorted.length === 0) {
         container.innerHTML = '<div class="no-data">No eligible players (25+ team brawls required)</div>';
@@ -1317,7 +1332,7 @@ function renderTeamLeaderboard() {
 
     const rows = sorted.map((player, index) => {
         const rank = index + 1;
-        const rating = player['stats.teamBrawl.rating'] || 0;
+        const rating = player[ratingKey] || 0;
         const rankInfo = getRankInfo(rating);
         const wins = player['stats.teamBrawl.wins'] || 0;
         const brawls = player['stats.teamBrawl.brawls'] || 0;
@@ -1374,6 +1389,74 @@ function renderTeamLeaderboard() {
     setTimeout(() => applyAllTints(), 100);
 }
 
+// GENERAL LEADERBOARD
+function renderGeneralLeaderboard() {
+    const container = document.getElementById('general-table-container');
+    const eligible = usersData.filter(u => u.username);
+
+    if (eligible.length === 0) {
+        container.innerHTML = '<div class="no-data">No data available</div>';
+        return;
+    }
+
+    const sorted = eligible.sort((a, b) => (b['stats.reputation'] || 0) - (a['stats.reputation'] || 0));
+
+    const rows = sorted.map((player, index) => {
+        const rank = index + 1;
+        const reputation = player['stats.reputation'] || 0;
+        const knockouts = player['stats.knockouts'] || 0;
+        const onlineTimeMs = player['stats.onlineTime'] || 0;
+        const onlineTime = Math.floor(onlineTimeMs / 1000);
+        const hours = Math.floor(onlineTime / 3600);
+        const minutes = Math.floor((onlineTime % 3600) / 60);
+        const timeStr = hours > 0 ? hours + 'h ' + minutes + 'm' : minutes + 'm';
+        const repLevel = getReputationLevel(reputation);
+        const repTitle = getReputationTitle(reputation);
+
+        let rankClass = '';
+        if (rank === 1) rankClass = 'gold';
+        else if (rank === 2) rankClass = 'silver';
+        else if (rank === 3) rankClass = 'bronze';
+
+        return `
+            <tr onclick="showPlayerModal('${player.username}')">
+                <td class="rank-cell ${rankClass}">${rank}</td>
+                <td class="player-cell">
+                    <div class="player-avatar-small">${createHeadAvatar(player)}</div>
+                    <div class="player-name">
+                        <span class="player-username">${player.username}</span>
+                        <span class="player-nickname">${player.nickname || ''}</span>
+                    </div>
+                </td>
+                <td style="color: var(--accent-gold); font-weight: 600;">${reputation.toLocaleString()}</td>
+                <td>${repLevel}</td>
+                <td data-rating="${repLevel}">${repTitle}</td>
+                <td>${knockouts.toLocaleString()}</td>
+                <td>${timeStr}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Brawler</th>
+                    <th>Reputation</th>
+                    <th>Level</th>
+                    <th>Title</th>
+                    <th>Knockouts</th>
+                    <th>Online Time</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+    makeTablesSortable();
+    setTimeout(() => applyAllTints(), 100);
+}
+
 // CTF LEADERBOARD
 function renderCTFLeaderboard(tab = 'winrate') {
     const container = document.getElementById('ctf-table-container');
@@ -1392,7 +1475,7 @@ function renderCTFLeaderboard(tab = 'winrate') {
     else if (tab === 'offensive') sorted.sort((a, b) => b.scores.offensive - a.scores.offensive);
     else if (tab === 'defensive') sorted.sort((a, b) => b.scores.defensive - a.scores.defensive);
     else if (tab === 'winrate') sorted.sort((a, b) => b.scores.winRate - a.scores.winRate);
-    else if (tab === 'all') sorted.sort((a, b) => b.scores.winRate - a.scores.winRate);
+    else if (tab === 'all') sorted.sort((a, b) => b.scores.overall - a.scores.overall);
 
     const rows = sorted.map((item, index) => {
         const { player, scores } = item;

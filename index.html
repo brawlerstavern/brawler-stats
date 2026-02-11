@@ -23,6 +23,7 @@
             <button class="nav-btn" onclick="showSection('traits-leaderboard')">Brawl Traits</button>
             <button class="nav-btn" onclick="showSection('guild-leaderboard')">Guilds</button>
             <button class="nav-btn" onclick="showSection('events-leaderboard')">Events</button>
+            <button class="nav-btn" onclick="showSection('general-leaderboard')">Misc</button>
             <button class="nav-btn" onclick="showSection('brawlers')">All Brawlers</button>
         </nav>
         <div class="header-logo">
@@ -37,6 +38,10 @@
             <div class="search-bar">
                 <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'solo-table-container')">
             </div>
+            <div class="ctf-tabs" id="solo-tabs">
+                <button class="ctf-tab active" onclick="showSoloTab('current')">Current</button>
+                <button class="ctf-tab" onclick="showSoloTab('highest')">Highest</button>
+            </div>
             <div id="solo-table-container">
                 <div class="loading">Loading leaderboard...</div>
             </div>
@@ -47,6 +52,10 @@
             <h2 class="section-title">Team Leaderboard</h2>
             <div class="search-bar">
                 <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'team-table-container')">
+            </div>
+            <div class="ctf-tabs" id="team-tabs">
+                <button class="ctf-tab active" onclick="showTeamTab('current')">Current</button>
+                <button class="ctf-tab" onclick="showTeamTab('highest')">Highest</button>
             </div>
             <div id="team-table-container">
                 <div class="loading">Loading leaderboard...</div>
@@ -143,6 +152,17 @@
             </div>
             <div id="events-table-container">
                 <div class="loading">Loading events...</div>
+            </div>
+        </section>
+
+        <!-- Misc Leaderboard -->
+        <section id="general-leaderboard" class="section">
+            <h2 class="section-title">Misc Leaderboard</h2>
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'general-table-container')">
+            </div>
+            <div id="general-table-container">
+                <div class="loading">Loading leaderboard...</div>
             </div>
         </section>
 
