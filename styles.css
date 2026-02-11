@@ -818,6 +818,10 @@ body {
     color: var(--accent-gold);
 }
 
+.ctf-tab.active:hover {
+    color: var(--bg-darker);
+}
+
 .guild-members-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
