@@ -66,6 +66,7 @@ jobs:
           cp images/* _site/images/
 
       - name: Generate OG preview screenshot
+        continue-on-error: true
         run: node screenshot.js
 
       - name: Upload Pages artifact

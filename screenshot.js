@@ -37,13 +37,19 @@ function startServer() {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
+
+    // Log page console output and errors for CI debugging
+    page.on('console', msg => console.log('PAGE:', msg.text()));
+    page.on('pageerror', err => console.error('PAGE ERROR:', err.message));
+    page.on('requestfailed', req => console.error('FAILED:', req.url(), req.failure().errorText));
+
     await page.setViewport({ width: 1200, height: 800 });
 
     // Don't wait for all network requests (avatar tinting loads thousands of images)
-    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // Wait for the solo leaderboard table to render
-    await page.waitForSelector('#solo-table-container table', { timeout: 30000 });
+    await page.waitForSelector('#solo-table-container table', { timeout: 60000 });
     console.log('Table rendered');
 
     // Small delay to let fonts and styles settle
