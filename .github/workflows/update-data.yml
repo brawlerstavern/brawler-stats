@@ -63,6 +63,7 @@ jobs:
           cp data/guilds.json _site/data/
           cp data/ctf_stats.json _site/data/
           cp data/brawl_stats.json _site/data/
+          cp data/belt_trophies.json _site/data/
           cp images/* _site/images/
 
       - name: Generate OG preview screenshot
