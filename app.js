@@ -2399,19 +2399,31 @@ function showPlayerModal(username) {
             `;
         }).join('');
 
+        const colgroup = `
+            <colgroup>
+                <col style="width:18%;">
+                <col style="width:12%;">
+                <col style="width:35%;">
+                <col style="width:12%;">
+                <col style="width:23%;">
+            </colgroup>`;
         pastSeasonsEl.innerHTML = `
             ${soloRows ? `
             <p style="color:var(--accent-gold);font-weight:600;margin:0.5rem 0 0.25rem;">Solo</p>
-            <table class="leaderboard-table" style="margin-bottom:1rem;">
+            <div class="modal-table-scroll" style="overflow-x:auto;margin-bottom:1rem;">
+            <table class="leaderboard-table" style="table-layout:fixed;min-width:420px;">
+                ${colgroup}
                 <thead><tr><th>Season</th><th style="text-align:right;">Rank</th><th>Rating</th><th style="text-align:right;">Rank</th><th>Highest Rating</th></tr></thead>
                 <tbody>${soloRows}</tbody>
-            </table>` : ''}
+            </table></div>` : ''}
             ${teamRows ? `
             <p style="color:var(--accent-gold);font-weight:600;margin:0.5rem 0 0.25rem;">Team</p>
-            <table class="leaderboard-table">
+            <div class="modal-table-scroll" style="overflow-x:auto;">
+            <table class="leaderboard-table" style="table-layout:fixed;min-width:420px;">
+                ${colgroup}
                 <thead><tr><th>Season</th><th style="text-align:right;">Rank</th><th>Rating</th><th style="text-align:right;">Rank</th><th>Highest Rating</th></tr></thead>
                 <tbody>${teamRows}</tbody>
-            </table>` : ''}
+            </table></div>` : ''}
         `;
     } else {
         pastSeasonsSection.style.display = 'none';
