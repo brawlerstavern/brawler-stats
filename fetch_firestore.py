@@ -44,10 +44,16 @@ def connect_firestore(key_path):
     return firestore.client()
 
 
-def fetch_collection(db, collection_name):
-    """Fetch all documents from a Firestore collection."""
+def fetch_collection(db, collection_name, fields=None):
+    """Fetch all documents from a Firestore collection.
+
+    Pass fields=['field1', 'field2'] to use a field mask and reduce data transfer.
+    """
     print(f"  Fetching {collection_name}...", end=" ", flush=True)
-    docs = db.collection(collection_name).get()
+    ref = db.collection(collection_name)
+    if fields:
+        ref = ref.select(fields)
+    docs = ref.get()
     data = {}
     for doc in docs:
         data[doc.id] = doc.to_dict()
@@ -405,7 +411,7 @@ def main():
     users_raw = fetch_collection(db, "users")
     guilds_raw = fetch_collection(db, "guilds")
     guild_members = fetch_guild_members(db, guilds_raw)
-    inventory_raw = fetch_collection(db, "inventory")
+    inventory_raw = fetch_collection(db, "inventory", fields=["taunt"])
     print()
 
     # Process
