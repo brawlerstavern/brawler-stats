@@ -2238,19 +2238,40 @@ function showPlayerModal(username) {
 
     if (trophyEntries.length > 0 || playerBelts.length > 0) {
         trophiesSection.style.display = '';
+        const ordinal = n => {
+            const s = ['th','st','nd','rd'], v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+        const chaliceUrl = rank => {
+            if (rank === 1) return 'https://cdn.brawlerstavern.com/ui/misc/chalice-gold.png';
+            if (rank === 2) return 'https://cdn.brawlerstavern.com/ui/misc/chalice-silver.png';
+            if (rank === 3) return 'https://cdn.brawlerstavern.com/ui/misc/chalice-bronze.png';
+            return 'https://cdn.brawlerstavern.com/ui/misc/chalice.png';
+        };
         const rankHtml = trophyEntries.map(e => {
-            const icon = e.rank > 3
-                ? `<img src="https://cdn.brawlerstavern.com/catalog/items/chalice/item_down.png" style="width:8em;height:8em;object-fit:fill;margin-top:1.5em;" onerror="this.style.display='none'">`
-                : `<span style="font-size:4em;line-height:1;">${e.icon}</span>`;
+            const mode = e.section === 'solo-leaderboard' ? 'Solo' : 'Team';
+            const isHighest = e.tab === 'highest';
+            const seasonNum = e.season === 'current' ? currentSeasonNum : e.season;
+            const subtitle = `${mode}${isHighest ? ' Highest' : ''} S${seasonNum}`;
             return `
-            <div class="trait-badge" style="cursor:pointer;padding:0.2rem 0.4rem;display:flex;align-items:center;justify-content:center;" onclick="goToLeaderboard('${e.section}','${e.season}','${e.tab}')" title="${e.label} #${e.rank}">
-                ${icon}
+            <div class="trait-badge" style="cursor:pointer;padding:0.6rem 0.8rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2em;" onclick="goToLeaderboard('${e.section}','${e.season}','${e.tab}')" title="${e.label} #${e.rank}">
+                <img src="${chaliceUrl(e.rank)}" style="width:8em;height:8em;object-fit:fill;" onerror="this.style.display='none'">
+                <span style="font-size:1.1em;font-weight:700;color:#fff;text-shadow:0 0 4px #ffe06688,0 0 8px #ffe06644;">${ordinal(e.rank)}</span>
+                <span style="font-size:1em;font-weight:600;color:#3b1f0a;text-align:center;">${subtitle}</span>
             </div>
         `;
         }).join('');
+        const beltNameOverrides = { 'Tournament Winner': 'Singles Belt (2026)' };
+        const beltNameHtml = name => {
+            const display = beltNameOverrides[name.trim()] || name.trim();
+            const words = display.split(/\s+/);
+            if (words.length <= 2) return display;
+            return `${words.slice(0, 2).join(' ')}<br>${words.slice(2).join(' ')}`;
+        };
         const beltHtml = playerBelts.map(b => `
-            <div class="trait-badge" style="padding:0.2rem 0.4rem;display:flex;align-items:center;justify-content:center;" title="${b.name}">
+            <div class="trait-badge" style="padding:0.6rem 0.8rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.2em;" title="${b.name}">
                 <img src="${b.iconUrl.replace(/catalog\/taunt\/(.+?)\.png$/, 'catalog/items/$1/item_down.png')}" style="width:8em;height:8em;object-fit:fill;" onerror="this.style.display='none'">
+                <span style="font-size:1em;font-weight:600;color:#3b1f0a;text-align:center;line-height:1.3;">${beltNameHtml(b.name)}</span>
             </div>
         `).join('');
         trophiesEl.innerHTML = rankHtml + beltHtml;
