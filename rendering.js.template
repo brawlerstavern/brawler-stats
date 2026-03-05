@@ -75,7 +75,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Brawl Rating</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${brawlRank.rank}
                             </div>
                         </div>
@@ -84,7 +84,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Team Rating</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${teamRank.rank}
                             </div>
                         </div>
@@ -135,7 +135,7 @@ function renderSoloLeaderboard() {
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
@@ -205,7 +205,7 @@ function renderTeamLeaderboard() {
                 </td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         <span style="color: var(--accent-gold); font-family: 'Cinzel', serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
@@ -382,7 +382,7 @@ function renderTraitsLeaderboard(filter = '') {
                 </td>
                 <td><span class="score-badge">${brawlScore !== null ? brawlScore.toFixed(1) : 'N/A'}/10</span></td>
                 <td>
-                    <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${rankInfo.rank}
                 </td>
                 <td style="font-size: 0.9rem;">${analysis.traits.join(', ') || 'None'}</td>
@@ -546,7 +546,7 @@ function showPlayerModal(username) {
             <div class="modal-stat-card">
                 <div class="modal-stat-label">Solo Rating</div>
                 <div class="modal-stat-value">
-                    <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    <img src="https://cdn.brawlerstavern.com/rankicons/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${brawlRank.rank} (${Math.round(brawlRating)})
                 </div>
             </div>

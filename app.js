@@ -4,33 +4,98 @@ let usersData = [];
 let guildMap = {};
 let ctfNormStats = {};
 let brawlNormStats = {};
+let beltTrophies = {}; // { userId: [{name, description, iconUrl}] }
+const brawlScoreCache = {};
+
+// Season state
+let availableSeasons = []; // [{num: 1, key: 'season1-2026-03-05', label: 'Season 1'}]
+let currentSeasonNum = 1;
+let soloActiveTab = 'current';
+let soloActiveSeason = 'current';
+let teamActiveTab = 'current';
+let teamActiveSeason = 'current';
+
+function detectSeasons() {
+    const seasonMap = {};
+    usersData.forEach(player => {
+        Object.keys(player).forEach(key => {
+            const match = key.match(/^season(\d+)-(\d{4}-\d{2}-\d{2})$/);
+            if (match) {
+                const num = parseInt(match[1]);
+                if (!seasonMap[num]) seasonMap[num] = { num, key, date: match[2], label: `Season ${match[1]}` };
+            }
+        });
+    });
+    availableSeasons = Object.values(seasonMap).sort((a, b) => a.num - b.num);
+    currentSeasonNum = availableSeasons.length > 0 ? Math.max(...availableSeasons.map(s => s.num)) + 1 : 1;
+}
+
+function getHistoricalData(player, seasonNum) {
+    const season = availableSeasons.find(s => s.num === seasonNum);
+    if (!season) return null;
+    const val = player[season.key];
+    return (val && typeof val === 'object') ? val : null;
+}
+
+function buildSeasonDropdown(containerId, onChangeFn, activeSeason) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (availableSeasons.length === 0) { container.innerHTML = ''; return; }
+    const options = [
+        `<option value="current" ${activeSeason === 'current' ? 'selected' : ''}>Season ${currentSeasonNum} (Current)</option>`,
+        ...availableSeasons.slice().reverse().map(s =>
+            `<option value="${s.num}" ${String(activeSeason) === String(s.num) ? 'selected' : ''}>${s.label}</option>`
+        )
+    ].join('');
+    container.innerHTML = `<select class="filter-select" style="max-width:220px;">${options}</select>`;
+    const fn = onChangeFn === 'showSoloSeason' ? showSoloSeason : showTeamSeason;
+    let debounceTimer;
+    container.querySelector('select').addEventListener('change', function() {
+        const val = this.value;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => fn(val), 200);
+    });
+}
+
+function initSeasonDropdowns() {
+    buildSeasonDropdown('solo-season-dropdown', 'showSoloSeason', soloActiveSeason);
+    buildSeasonDropdown('team-season-dropdown', 'showTeamSeason', teamActiveSeason);
+}
 
 // Data loading
 async function loadData() {
     try {
         // Cache-bust data files so the browser always fetches the latest deploy
         const cb = `?v=${Date.now()}`;
-        const [users, guilds, ctfStats, brawlStats] = await Promise.all([
+        const [users, guilds, ctfStats, brawlStats, belts] = await Promise.all([
             fetch(`data/users.json${cb}`).then(r => r.json()),
             fetch(`data/guilds.json${cb}`).then(r => r.json()),
             fetch(`data/ctf_stats.json${cb}`).then(r => r.json()),
-            fetch(`data/brawl_stats.json${cb}`).then(r => r.json())
+            fetch(`data/brawl_stats.json${cb}`).then(r => r.json()),
+            fetch(`data/belt_trophies.json${cb}`).then(r => r.json()).catch(() => ({}))
         ]);
 
         usersData = users.filter(u => {
             const username = (u.username || '').toUpperCase();
             return username !== 'TYVAN' && username !== 'LIONEL';
         });
+        // Clear brawl score cache since data has been refreshed
+        Object.keys(brawlScoreCache).forEach(k => delete brawlScoreCache[k]);
         guildMap = guilds;
         ctfNormStats = ctfStats;
         brawlNormStats = brawlStats;
+        beltTrophies = belts;
 
         console.log(`✓ Loaded ${usersData.length} users`);
         console.log(`✓ Loaded ${Object.keys(guildMap).length} guilds`);
 
+        // Detect historical seasons
+        detectSeasons();
+
         // Initialize all sections
         renderBrawlers();
         renderSoloLeaderboard();
+        initSeasonDropdowns();
         renderTeamLeaderboard();
         renderCTFLeaderboard('all');
         renderTraitsLeaderboard();
@@ -541,11 +606,14 @@ function calculateCTFScores(player) {
 }
 
 function calculateBrawlScore(player) {
+    const key = player.username;
+    if (key in brawlScoreCache) return brawlScoreCache[key];
+
     const brawls = player['stats.brawl.brawls'] || 0;
-    if (brawls < 25) return null;
+    if (brawls < 25) return (brawlScoreCache[key] = null);
 
     const finishes = player['stats.brawl.traits.finishes'] || 0;
-    if (finishes === 0) return null;
+    if (finishes === 0) return (brawlScoreCache[key] = null);
 
     // Extract key performance metrics
     const swings = player['stats.brawl.traits.swings'] || 1;
@@ -576,7 +644,8 @@ function calculateBrawlScore(player) {
 
     const totalScore = efficiencyScore + counterScore + comboScore + accuracyScore + evasionScore;
 
-    return Math.min(10, Math.max(0, totalScore / 10)); // Normalize to 0-10
+    const score = Math.min(10, Math.max(0, totalScore / 10)); // Normalize to 0-10
+    return (brawlScoreCache[key] = score);
 }
 
 function calculateBrawlScores(player) {
@@ -928,94 +997,99 @@ function isAscendingTrait(traitName) {
 }
 
 // TABLE SORTING FUNCTIONALITY
+// Uses event delegation on the container div so listeners survive innerHTML re-renders.
 function makeTablesSortable() {
     document.querySelectorAll('.leaderboard-table').forEach(table => {
-        const headers = table.querySelectorAll('thead th');
+        const container = table.closest('[id]') || table.parentElement;
+        if (container.dataset.sortDelegated) return;
+        container.dataset.sortDelegated = '1';
 
-        headers.forEach((header, index) => {
-            if (header.classList.contains('sortable-init')) return;
-            header.classList.add('sortable-init');
-            header.style.cursor = 'pointer';
-            header.style.userSelect = 'none';
+        // Style headers once via CSS-like delegation — headers are re-styled on each click
+        container.addEventListener('click', e => {
+            const header = e.target.closest('thead th');
+            if (!header) return;
 
-            header.addEventListener('click', () => {
-                const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('tr'));
+            const table = header.closest('table');
+            const headers = Array.from(table.querySelectorAll('thead th'));
+            const index = headers.indexOf(header);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
 
-                // Determine sort direction (default to descending on first click)
-                const currentDirection = header.getAttribute('data-sort-dir') || 'none';
-                let newDirection = 'desc';
-                if (currentDirection === 'desc') newDirection = 'asc';
-                else if (currentDirection === 'asc') newDirection = 'desc';
+            // Determine sort direction
+            const currentDirection = header.getAttribute('data-sort-dir') || 'none';
+            const newDirection = currentDirection === 'desc' ? 'asc' : 'desc';
 
-                // Clear all sort indicators
-                headers.forEach(h => {
-                    h.removeAttribute('data-sort-dir');
-                    const indicator = h.querySelector('.sort-indicator');
-                    if (indicator) indicator.remove();
-                });
-
-                // Add sort indicator
-                header.setAttribute('data-sort-dir', newDirection);
-                const indicator = document.createElement('span');
-                indicator.className = 'sort-indicator';
-                indicator.textContent = newDirection === 'asc' ? ' ▲' : ' ▼';
-                indicator.style.fontSize = '0.8em';
-                indicator.style.marginLeft = '0.3em';
-                header.appendChild(indicator);
-
-                // Sort rows
-                rows.sort((a, b) => {
-                    const cellA = a.querySelectorAll('td')[index];
-                    const cellB = b.querySelectorAll('td')[index];
-
-                    let valA = cellA.textContent.trim();
-                    let valB = cellB.textContent.trim();
-
-                    // Special handling for "Tier" column - sort by rating instead
-                    const headerText = header.textContent.trim();
-                    if (headerText.startsWith('Tier') || headerText.startsWith('Title')) {
-                        // First try to get rating from data attribute
-                        const ratingA = parseFloat(cellA.getAttribute('data-rating'));
-                        const ratingB = parseFloat(cellB.getAttribute('data-rating'));
-
-                        if (!isNaN(ratingA) && !isNaN(ratingB)) {
-                            return newDirection === 'asc' ? ratingA - ratingB : ratingB - ratingA;
-                        }
-
-                        // Fallback: Find the Rating column (usually next column)
-                        const ratingIndex = index + 1;
-                        const ratingCellA = a.querySelectorAll('td')[ratingIndex];
-                        const ratingCellB = b.querySelectorAll('td')[ratingIndex];
-
-                        if (ratingCellA && ratingCellB) {
-                            const ratingValA = parseFloat(ratingCellA.textContent.replace(/[^0-9.-]/g, ''));
-                            const ratingValB = parseFloat(ratingCellB.textContent.replace(/[^0-9.-]/g, ''));
-
-                            if (!isNaN(ratingValA) && !isNaN(ratingValB)) {
-                                return newDirection === 'asc' ? ratingValA - ratingValB : ratingValB - ratingValA;
-                            }
-                        }
-                    }
-
-                    // Try to parse as number
-                    const numA = parseFloat(valA.replace(/[^0-9.-]/g, ''));
-                    const numB = parseFloat(valB.replace(/[^0-9.-]/g, ''));
-
-                    if (!isNaN(numA) && !isNaN(numB)) {
-                        return newDirection === 'asc' ? numA - numB : numB - numA;
-                    }
-
-                    // String comparison
-                    return newDirection === 'asc'
-                        ? valA.localeCompare(valB)
-                        : valB.localeCompare(valA);
-                });
-
-                // Re-append sorted rows
-                rows.forEach(row => tbody.appendChild(row));
+            // Clear all sort indicators
+            headers.forEach(h => {
+                h.removeAttribute('data-sort-dir');
+                const indicator = h.querySelector('.sort-indicator');
+                if (indicator) indicator.remove();
             });
+
+            // Add sort indicator
+            header.setAttribute('data-sort-dir', newDirection);
+            const indicator = document.createElement('span');
+            indicator.className = 'sort-indicator';
+            indicator.textContent = newDirection === 'asc' ? ' ▲' : ' ▼';
+            indicator.style.fontSize = '0.8em';
+            indicator.style.marginLeft = '0.3em';
+            header.appendChild(indicator);
+
+            // Sort rows
+            rows.sort((a, b) => {
+                const cellA = a.querySelectorAll('td')[index];
+                const cellB = b.querySelectorAll('td')[index];
+
+                let valA = cellA.textContent.trim();
+                let valB = cellB.textContent.trim();
+
+                // Special handling for "Tier" column - sort by rating instead
+                const headerText = header.textContent.trim();
+                if (headerText.startsWith('Tier') || headerText.startsWith('Title')) {
+                    const ratingA = parseFloat(cellA.getAttribute('data-rating'));
+                    const ratingB = parseFloat(cellB.getAttribute('data-rating'));
+
+                    if (!isNaN(ratingA) && !isNaN(ratingB)) {
+                        return newDirection === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+                    }
+
+                    const ratingIndex = index + 1;
+                    const ratingCellA = a.querySelectorAll('td')[ratingIndex];
+                    const ratingCellB = b.querySelectorAll('td')[ratingIndex];
+
+                    if (ratingCellA && ratingCellB) {
+                        const ratingValA = parseFloat(ratingCellA.textContent.replace(/[^0-9.-]/g, ''));
+                        const ratingValB = parseFloat(ratingCellB.textContent.replace(/[^0-9.-]/g, ''));
+
+                        if (!isNaN(ratingValA) && !isNaN(ratingValB)) {
+                            return newDirection === 'asc' ? ratingValA - ratingValB : ratingValB - ratingValA;
+                        }
+                    }
+                }
+
+                // Try to parse as number
+                const numA = parseFloat(valA.replace(/[^0-9.-]/g, ''));
+                const numB = parseFloat(valB.replace(/[^0-9.-]/g, ''));
+
+                if (!isNaN(numA) && !isNaN(numB)) {
+                    return newDirection === 'asc' ? numA - numB : numB - numA;
+                }
+
+                // String comparison
+                return newDirection === 'asc'
+                    ? valA.localeCompare(valB)
+                    : valB.localeCompare(valA);
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
         });
+
+    });
+
+    // Always re-style headers after a re-render (new th elements, persistent container)
+    document.querySelectorAll('.leaderboard-table thead th').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.style.userSelect = 'none';
     });
 }
 
@@ -1023,11 +1097,89 @@ function makeTablesSortable() {
 // For file size reasons, I'm creating a separate documentation file with the complete code
 
 // Navigation
-function showSection(sectionId) {
+function showSection(sectionId, fromEvent) {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    if (fromEvent) {
+        fromEvent.target.classList.add('active');
+    } else {
+        // Find the nav button that maps to this section and activate it
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${sectionId}'`)) {
+                btn.classList.add('active');
+            }
+        });
+    }
     document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
     document.getElementById(sectionId).classList.add('active');
+}
+
+function goToLeaderboard(sectionId, season, tab) {
+    closePlayerModal();
+    showSection(sectionId);
+
+    if (sectionId === 'solo-leaderboard') {
+        soloActiveSeason = season || 'current';
+        soloActiveTab = tab || 'current';
+        document.querySelectorAll('#solo-tabs .ctf-tab').forEach((btn, i) => {
+            btn.classList.toggle('active', soloActiveTab === 'highest' ? i === 1 : i === 0);
+        });
+        buildSeasonDropdown('solo-season-dropdown', 'showSoloSeason', soloActiveSeason);
+        renderSoloLeaderboard(soloActiveTab, soloActiveSeason);
+    } else if (sectionId === 'team-leaderboard') {
+        teamActiveSeason = season || 'current';
+        teamActiveTab = tab || 'current';
+        document.querySelectorAll('#team-tabs .ctf-tab').forEach((btn, i) => {
+            btn.classList.toggle('active', teamActiveTab === 'highest' ? i === 1 : i === 0);
+        });
+        buildSeasonDropdown('team-season-dropdown', 'showTeamSeason', teamActiveSeason);
+        renderTeamLeaderboard(teamActiveTab, teamActiveSeason);
+    }
+}
+
+function getPlayerLeaderboardRank(username, mode, seasonParam, ratingType = 'rating') {
+    const isHistorical = seasonParam !== 'current';
+    const seasonNum = isHistorical ? parseInt(seasonParam) : null;
+    const ratingField = ratingType === 'highestRating' ? 'highestRating' : 'rating';
+
+    let entries;
+    if (!isHistorical) {
+        const prefix = mode === 'solo' ? 'stats.brawl' : 'stats.teamBrawl';
+        const bKey = prefix + '.brawls';
+        const wKey = prefix + '.wins';
+        const rKey = prefix + '.' + ratingField;
+        entries = usersData
+            .filter(u => (u[bKey] || 0) >= 25 && (u[wKey] || 0) > 0)
+            .map(u => ({ username: u.username, rating: u[rKey] || 0 }));
+    } else {
+        const modeKey = mode === 'solo' ? 'brawl' : 'teamBrawl';
+        entries = usersData.map(u => {
+            const hist = getHistoricalData(u, seasonNum);
+            if (!hist?.[modeKey]) return null;
+            if ((hist[modeKey].brawls || 0) < 25 || (hist[modeKey].wins || 0) === 0) return null;
+            return { username: u.username, rating: hist[modeKey][ratingField] || 0 };
+        }).filter(Boolean);
+    }
+    entries.sort((a, b) => b.rating - a.rating);
+    const idx = entries.findIndex(e => e.username === username);
+    return idx >= 0 ? idx + 1 : null;
+}
+
+function rankBadge(rank) {
+    if (rank === null) return '';
+    if (rank === 1) return ' <span style="color:#FFD700;font-size:0.85em;">#1</span>';
+    if (rank === 2) return ' <span style="color:#C0C0C0;font-size:0.85em;">#2</span>';
+    if (rank === 3) return ' <span style="color:#CD7F32;font-size:0.85em;">#3</span>';
+    if (rank <= 10) return ` <span style="color:var(--text-secondary);font-size:0.85em;">#${rank}</span>`;
+    return ` <span style="color:var(--text-secondary);font-size:0.85em;">#${rank}</span>`;
+}
+
+function trophyIcon(rank) {
+    if (rank === null) return '';
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    if (rank <= 10) return '🏆';
+    return '';
 }
 
 function filterLeaderboard(searchTerm, containerId) {
@@ -1058,15 +1210,27 @@ function showCTFTab(tab) {
 }
 
 function showSoloTab(tab) {
+    soloActiveTab = tab;
     document.querySelectorAll('#solo-tabs .ctf-tab').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-    renderSoloLeaderboard(tab);
+    renderSoloLeaderboard(soloActiveTab, soloActiveSeason);
+}
+
+function showSoloSeason(season) {
+    soloActiveSeason = season;
+    renderSoloLeaderboard(soloActiveTab, soloActiveSeason);
 }
 
 function showTeamTab(tab) {
+    teamActiveTab = tab;
     document.querySelectorAll('#team-tabs .ctf-tab').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-    renderTeamLeaderboard(tab);
+    renderTeamLeaderboard(teamActiveTab, teamActiveSeason);
+}
+
+function showTeamSeason(season) {
+    teamActiveSeason = season;
+    renderTeamLeaderboard(teamActiveTab, teamActiveSeason);
 }
 
 function filterByTrait(filter) {
@@ -1189,7 +1353,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Solo Rating</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${brawlRank.rank}
                             </div>
                         </div>
@@ -1198,7 +1362,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Highest Solo</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${highestBrawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${highestBrawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${highestBrawlRank.rank}
                             </div>
                         </div>
@@ -1207,7 +1371,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Team Rating</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${teamRank.rank}
                             </div>
                         </div>
@@ -1216,7 +1380,7 @@ function renderBrawlers() {
                         <div class="stat-item">
                             <div class="stat-label">Highest Team</div>
                             <div class="stat-value">
-                                <img src="https://cdn.brawlerstavern.com/rankicon/${highestTeamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                                <img src="https://cdn.brawlerstavern.com/rankicons/${highestTeamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                                 ${highestTeamRank.rank}
                             </div>
                         </div>
@@ -1236,26 +1400,48 @@ function renderBrawlers() {
 }
 
 // SOLO LEADERBOARD
-function renderSoloLeaderboard(tab = 'current') {
+function renderSoloLeaderboard(tab = 'current', season = 'current') {
     const container = document.getElementById('solo-table-container');
-    const ratingKey = tab === 'highest' ? 'stats.brawl.highestRating' : 'stats.brawl.rating';
-    const eligible = usersData.filter(u => (u['stats.brawl.brawls'] || 0) >= 25 && (u['stats.brawl.wins'] || 0) > 0);
-    const sorted = eligible.sort((a, b) => (b[ratingKey] || 0) - (a[ratingKey] || 0));
+    const titleEl = document.getElementById('solo-leaderboard-title');
+    const seasonNum = season === 'current' ? currentSeasonNum : parseInt(season);
+    if (titleEl) titleEl.textContent = `Solo Leaderboard (Season ${seasonNum})`;
 
-    if (sorted.length === 0) {
+    let entries; // [{player, rating, wins, brawls, brawlScore}]
+
+    if (season === 'current') {
+        const ratingKey = tab === 'highest' ? 'stats.brawl.highestRating' : 'stats.brawl.rating';
+        entries = usersData
+            .filter(u => (u['stats.brawl.brawls'] || 0) >= 25 && (u['stats.brawl.wins'] || 0) > 0)
+            .map(player => ({
+                player,
+                rating: player[ratingKey] || 0,
+                wins: player['stats.brawl.wins'] || 0,
+                brawls: player['stats.brawl.brawls'] || 0,
+                brawlScore: calculateBrawlScore(player),
+            }));
+    } else {
+        const ratingField = tab === 'highest' ? 'highestRating' : 'rating';
+        entries = usersData.map(player => {
+            const hist = getHistoricalData(player, seasonNum);
+            if (!hist?.brawl) return null;
+            const brawls = hist.brawl.brawls || 0;
+            const wins = hist.brawl.wins || 0;
+            if (brawls < 25 || wins === 0) return null;
+            return { player, rating: hist.brawl[ratingField] || 0, wins, brawls, brawlScore: null };
+        }).filter(Boolean);
+    }
+
+    entries.sort((a, b) => b.rating - a.rating);
+
+    if (entries.length === 0) {
         container.innerHTML = '<div class="no-data">No eligible players (25+ brawls required)</div>';
         return;
     }
 
-    const rows = sorted.map((player, index) => {
+    const rows = entries.map(({ player, rating, wins, brawls, brawlScore }, index) => {
         const rank = index + 1;
-        const rating = player[ratingKey] || 0;
         const rankInfo = getRankInfo(rating);
-        const wins = player['stats.brawl.wins'] || 0;
-        const brawls = player['stats.brawl.brawls'] || 0;
         const winRate = brawls > 0 ? ((wins / brawls) * 100).toFixed(1) : '0.0';
-        const brawlScore = calculateBrawlScore(player);
-        
         let rankClass = '';
         if (rank === 1) rankClass = 'gold';
         else if (rank === 2) rankClass = 'silver';
@@ -1265,9 +1451,7 @@ function renderSoloLeaderboard(tab = 'current') {
             <tr onclick="showPlayerModal('${player.username}')">
                 <td class="rank-cell ${rankClass}">${rank}</td>
                 <td class="player-cell">
-                    <div class="player-avatar-small">
-                        ${createHeadAvatar(player)}
-                    </div>
+                    <div class="player-avatar-small">${createHeadAvatar(player)}</div>
                     <div class="player-name">
                         <span class="player-username">${player.username}</span>
                         <span class="player-nickname">${player.nickname || ''}</span>
@@ -1275,14 +1459,14 @@ function renderSoloLeaderboard(tab = 'current') {
                 </td>
                 <td data-rating="${rating}">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         <span style="color: var(--accent-gold); font-family: 'Source Sans 3', sans-serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
                 <td style="color: var(--accent-gold); font-weight: 600; font-size: 1.2rem;">${Math.round(rating)}</td>
                 <td>${wins} / ${brawls}</td>
                 <td style="color: ${winRate >= 50 ? '#4ade80' : '#f87171'};">${winRate}%</td>
-                <td>${brawlScore !== null ? scoreBadgeHTML(brawlScore) : 'N/A'}</td>
+                <td>${brawlScore !== null ? scoreBadgeHTML(brawlScore) : '—'}</td>
             </tr>
         `;
     }).join('');
@@ -1300,9 +1484,7 @@ function renderSoloLeaderboard(tab = 'current') {
                     <th${tip('OVR')}>OVR</th>
                 </tr>
             </thead>
-            <tbody>
-                ${rows}
-            </tbody>
+            <tbody>${rows}</tbody>
         </table>
         <div class="methodology-info" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--accent-gold); padding: 0.75rem 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
             <strong style="color: var(--accent-gold);">OVR Score Calculation:</strong> Weighted composite of combat performance metrics:<br>
@@ -1319,25 +1501,47 @@ function renderSoloLeaderboard(tab = 'current') {
 }
 
 // TEAM LEADERBOARD
-function renderTeamLeaderboard(tab = 'current') {
+function renderTeamLeaderboard(tab = 'current', season = 'current') {
     const container = document.getElementById('team-table-container');
-    const ratingKey = tab === 'highest' ? 'stats.teamBrawl.highestRating' : 'stats.teamBrawl.rating';
-    const eligible = usersData.filter(u => (u['stats.teamBrawl.brawls'] || 0) >= 25 && (u['stats.teamBrawl.wins'] || 0) > 0);
-    const sorted = eligible.sort((a, b) => (b[ratingKey] || 0) - (a[ratingKey] || 0));
+    const titleEl = document.getElementById('team-leaderboard-title');
+    const seasonNum = season === 'current' ? currentSeasonNum : parseInt(season);
+    if (titleEl) titleEl.textContent = `Team Leaderboard (Season ${seasonNum})`;
 
-    if (sorted.length === 0) {
+    let entries;
+
+    if (season === 'current') {
+        const ratingKey = tab === 'highest' ? 'stats.teamBrawl.highestRating' : 'stats.teamBrawl.rating';
+        entries = usersData
+            .filter(u => (u['stats.teamBrawl.brawls'] || 0) >= 25 && (u['stats.teamBrawl.wins'] || 0) > 0)
+            .map(player => ({
+                player,
+                rating: player[ratingKey] || 0,
+                wins: player['stats.teamBrawl.wins'] || 0,
+                brawls: player['stats.teamBrawl.brawls'] || 0,
+            }));
+    } else {
+        const ratingField = tab === 'highest' ? 'highestRating' : 'rating';
+        entries = usersData.map(player => {
+            const hist = getHistoricalData(player, seasonNum);
+            if (!hist?.teamBrawl) return null;
+            const brawls = hist.teamBrawl.brawls || 0;
+            const wins = hist.teamBrawl.wins || 0;
+            if (brawls < 25 || wins === 0) return null;
+            return { player, rating: hist.teamBrawl[ratingField] || 0, wins, brawls };
+        }).filter(Boolean);
+    }
+
+    entries.sort((a, b) => b.rating - a.rating);
+
+    if (entries.length === 0) {
         container.innerHTML = '<div class="no-data">No eligible players (25+ team brawls required)</div>';
         return;
     }
 
-    const rows = sorted.map((player, index) => {
+    const rows = entries.map(({ player, rating, wins, brawls }, index) => {
         const rank = index + 1;
-        const rating = player[ratingKey] || 0;
         const rankInfo = getRankInfo(rating);
-        const wins = player['stats.teamBrawl.wins'] || 0;
-        const brawls = player['stats.teamBrawl.brawls'] || 0;
         const winRate = brawls > 0 ? ((wins / brawls) * 100).toFixed(1) : '0.0';
-        
         let rankClass = '';
         if (rank === 1) rankClass = 'gold';
         else if (rank === 2) rankClass = 'silver';
@@ -1347,9 +1551,7 @@ function renderTeamLeaderboard(tab = 'current') {
             <tr onclick="showPlayerModal('${player.username}')">
                 <td class="rank-cell ${rankClass}">${rank}</td>
                 <td class="player-cell">
-                    <div class="player-avatar-small">
-                        ${createHeadAvatar(player)}
-                    </div>
+                    <div class="player-avatar-small">${createHeadAvatar(player)}</div>
                     <div class="player-name">
                         <span class="player-username">${player.username}</span>
                         <span class="player-nickname">${player.nickname || ''}</span>
@@ -1357,7 +1559,7 @@ function renderTeamLeaderboard(tab = 'current') {
                 </td>
                 <td data-rating="${rating}">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         <span style="color: var(--accent-gold); font-family: 'Source Sans 3', sans-serif; font-weight: 600;">${rankInfo.rank}</span>
                     </div>
                 </td>
@@ -1380,9 +1582,7 @@ function renderTeamLeaderboard(tab = 'current') {
                     <th>Win Rate</th>
                 </tr>
             </thead>
-            <tbody>
-                ${rows}
-            </tbody>
+            <tbody>${rows}</tbody>
         </table>
     `;
     makeTablesSortable();
@@ -1670,7 +1870,7 @@ function renderTraitsLeaderboard(filter = '') {
                 <td>${formatScore(comboRate)}</td>
                 <td>${formatScore(counterRate)}</td>
                 <td data-rating="${rating}">
-                    <img src="https://cdn.brawlerstavern.com/rankicon/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    <img src="https://cdn.brawlerstavern.com/rankicons/${rankInfo.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${rankInfo.rank}
                 </td>
             </tr>
@@ -1914,11 +2114,12 @@ function showPlayerModal(username) {
     if (brawlBrawls >= 25) {
         const brawlRating = player['stats.brawl.rating'] || 0;
         const brawlRank = getRankInfo(brawlRating);
+        const soloRankNum = getPlayerLeaderboardRank(player.username, 'solo', 'current');
         statsHTML += `
-            <div class="modal-stat-card">
-                <div class="modal-stat-label">Solo Rating</div>
+            <div class="modal-stat-card" style="cursor:pointer;" onclick="goToLeaderboard('solo-leaderboard','current','current')">
+                <div class="modal-stat-label">Solo Rating${rankBadge(soloRankNum)}</div>
                 <div class="modal-stat-value">
-                    <img src="https://cdn.brawlerstavern.com/rankicon/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    <img src="https://cdn.brawlerstavern.com/rankicons/${brawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${brawlRank.rank} (${Math.round(brawlRating)})
                 </div>
             </div>
@@ -1928,10 +2129,10 @@ function showPlayerModal(username) {
         if (highestBrawlRating > 0) {
             const highestBrawlRank = getRankInfo(highestBrawlRating);
             statsHTML += `
-                <div class="modal-stat-card">
+                <div class="modal-stat-card" style="cursor:pointer;" onclick="goToLeaderboard('solo-leaderboard','current','highest')">
                     <div class="modal-stat-label">Highest Solo</div>
                     <div class="modal-stat-value">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${highestBrawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${highestBrawlRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         ${highestBrawlRank.rank} (${Math.round(highestBrawlRating)})
                     </div>
                 </div>
@@ -1943,11 +2144,12 @@ function showPlayerModal(username) {
     if (teamBrawls >= 25) {
         const teamRating = player['stats.teamBrawl.rating'] || 0;
         const teamRank = getRankInfo(teamRating);
+        const teamRankNum = getPlayerLeaderboardRank(player.username, 'team', 'current');
         statsHTML += `
-            <div class="modal-stat-card">
-                <div class="modal-stat-label">Team Rating</div>
+            <div class="modal-stat-card" style="cursor:pointer;" onclick="goToLeaderboard('team-leaderboard','current','current')">
+                <div class="modal-stat-label">Team Rating${rankBadge(teamRankNum)}</div>
                 <div class="modal-stat-value">
-                    <img src="https://cdn.brawlerstavern.com/rankicon/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                    <img src="https://cdn.brawlerstavern.com/rankicons/${teamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                     ${teamRank.rank} (${Math.round(teamRating)})
                 </div>
             </div>
@@ -1957,10 +2159,10 @@ function showPlayerModal(username) {
         if (highestTeamRating > 0) {
             const highestTeamRank = getRankInfo(highestTeamRating);
             statsHTML += `
-                <div class="modal-stat-card">
+                <div class="modal-stat-card" style="cursor:pointer;" onclick="goToLeaderboard('team-leaderboard','current','highest')">
                     <div class="modal-stat-label">Highest Team</div>
                     <div class="modal-stat-value">
-                        <img src="https://cdn.brawlerstavern.com/rankicon/${highestTeamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
+                        <img src="https://cdn.brawlerstavern.com/rankicons/${highestTeamRank.icon}.png" class="rank-icon" onerror="this.style.display='none'">
                         ${highestTeamRank.rank} (${Math.round(highestTeamRating)})
                     </div>
                 </div>
@@ -2001,6 +2203,60 @@ function showPlayerModal(username) {
     }
 
     document.getElementById('modal-stats').innerHTML = statsHTML;
+
+    // Trophies
+    const trophiesSection = document.getElementById('modal-trophies-section');
+    const trophiesEl = document.getElementById('modal-trophies');
+    // For each (mode, season) pair pick the best (lowest) rank between rating and highestRating
+    const trophyMap = {}; // key: 'solo-current', 'team-1', etc.
+    const checkTrophyRank = (mode, seasonParam, tab, ratingType) => {
+        const rank = getPlayerLeaderboardRank(player.username, mode, seasonParam, ratingType);
+        if (rank === null || rank > 10) return;
+        const key = `${mode}-${seasonParam}`;
+        const section = mode === 'solo' ? 'solo-leaderboard' : 'team-leaderboard';
+        if (!trophyMap[key] || rank < trophyMap[key].rank) {
+            const modeLabel = mode === 'solo' ? 'Solo' : 'Team';
+            const ratingLabel = ratingType === 'highestRating' ? 'Highest Rating' : 'Rating';
+            const seasonLabel = seasonParam === 'current' ? 'Current Season' : `Season ${seasonParam}`;
+            const label = `${modeLabel} ${ratingLabel} — ${seasonLabel}`;
+            trophyMap[key] = { rank, icon: trophyIcon(rank), section, season: seasonParam, tab, label };
+        }
+    };
+
+    availableSeasons.forEach(s => {
+        const sp = String(s.num);
+        checkTrophyRank('solo', sp, 'current', 'rating');
+        checkTrophyRank('solo', sp, 'highest', 'highestRating');
+        checkTrophyRank('team', sp, 'current', 'rating');
+        checkTrophyRank('team', sp, 'highest', 'highestRating');
+    });
+
+    const trophyEntries = Object.values(trophyMap);
+
+    // Belt trophies from inventory
+    const playerBelts = beltTrophies[player.id] || [];
+
+    if (trophyEntries.length > 0 || playerBelts.length > 0) {
+        trophiesSection.style.display = '';
+        const rankHtml = trophyEntries.map(e => {
+            const icon = e.rank > 3
+                ? `<img src="https://cdn.brawlerstavern.com/catalog/items/chalice/item_down.png" style="width:8em;height:8em;object-fit:fill;margin-top:1.5em;" onerror="this.style.display='none'">`
+                : `<span style="font-size:4em;line-height:1;">${e.icon}</span>`;
+            return `
+            <div class="trait-badge" style="cursor:pointer;padding:0.2rem 0.4rem;display:flex;align-items:center;justify-content:center;" onclick="goToLeaderboard('${e.section}','${e.season}','${e.tab}')" title="${e.label} #${e.rank}">
+                ${icon}
+            </div>
+        `;
+        }).join('');
+        const beltHtml = playerBelts.map(b => `
+            <div class="trait-badge" style="padding:0.2rem 0.4rem;display:flex;align-items:center;justify-content:center;" title="${b.name}">
+                <img src="${b.iconUrl.replace(/catalog\/taunt\/(.+?)\.png$/, 'catalog/items/$1/item_down.png')}" style="width:8em;height:8em;object-fit:fill;" onerror="this.style.display='none'">
+            </div>
+        `).join('');
+        trophiesEl.innerHTML = rankHtml + beltHtml;
+    } else {
+        trophiesSection.style.display = 'none';
+    }
 
     // Traits
     const analysis = calculateTraits(player);
@@ -2067,6 +2323,77 @@ function showPlayerModal(username) {
                 <div class="modal-stat-value">${scoreBadgeHTML(ctfScores.defensive)}</div>
             </div>
         `;
+    }
+
+    // Past Seasons
+    const pastSeasonsSection = document.getElementById('modal-past-seasons-section');
+    const pastSeasonsEl = document.getElementById('modal-past-seasons');
+    const seasonsWithData = availableSeasons.filter(s => getHistoricalData(player, s.num));
+
+    if (seasonsWithData.length > 0) {
+        pastSeasonsSection.style.display = '';
+
+        const fmt = (val, section, season, tab) => {
+            if (!val) return '—';
+            const info = getRankInfo(val);
+            const inner = `<img src="https://cdn.brawlerstavern.com/rankicons/${info.icon}.png" class="rank-icon" onerror="this.style.display='none'" style="vertical-align:middle;margin-right:4px;">${info.rank} <span style="color:var(--text-secondary);font-size:0.85em;">(${Math.round(val)})</span>`;
+            if (section) return `<span style="cursor:pointer;" onclick="event.stopPropagation();goToLeaderboard('${section}','${season}','${tab}')">${inner}</span>`;
+            return inner;
+        };
+
+        const fmtRank = (rank, section, season, tab) => {
+            if (!rank) return '<span style="color:var(--text-secondary);">—</span>';
+            return `<span style="cursor:pointer;font-weight:600;" onclick="event.stopPropagation();goToLeaderboard('${section}','${season}','${tab}')">${trophyIcon(rank) || ''} #${rank}</span>`;
+        };
+
+        const soloRows = seasonsWithData.slice().reverse().map(s => {
+            const hist = getHistoricalData(player, s.num);
+            if (!hist?.brawl || (hist.brawl.brawls || 0) < 25) return '';
+            const soloRank = getPlayerLeaderboardRank(player.username, 'solo', String(s.num), 'rating');
+            const soloHighRank = getPlayerLeaderboardRank(player.username, 'solo', String(s.num), 'highestRating');
+            return `
+                <tr>
+                    <td style="color:var(--accent-gold);font-weight:600;white-space:nowrap;">${s.label}</td>
+                    <td style="text-align:right;">${fmtRank(soloRank, 'solo-leaderboard', s.num, 'current')}</td>
+                    <td>${fmt(hist.brawl.rating, 'solo-leaderboard', s.num, 'current')}</td>
+                    <td style="text-align:right;">${fmtRank(soloHighRank, 'solo-leaderboard', s.num, 'highest')}</td>
+                    <td>${fmt(hist.brawl.highestRating, 'solo-leaderboard', s.num, 'highest')}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const teamRows = seasonsWithData.slice().reverse().map(s => {
+            const hist = getHistoricalData(player, s.num);
+            if (!hist?.teamBrawl || (hist.teamBrawl.brawls || 0) < 25) return '';
+            const teamRank = getPlayerLeaderboardRank(player.username, 'team', String(s.num), 'rating');
+            const teamHighRank = getPlayerLeaderboardRank(player.username, 'team', String(s.num), 'highestRating');
+            return `
+                <tr>
+                    <td style="color:var(--accent-gold);font-weight:600;white-space:nowrap;">${s.label}</td>
+                    <td style="text-align:right;">${fmtRank(teamRank, 'team-leaderboard', s.num, 'current')}</td>
+                    <td>${fmt(hist.teamBrawl.rating, 'team-leaderboard', s.num, 'current')}</td>
+                    <td style="text-align:right;">${fmtRank(teamHighRank, 'team-leaderboard', s.num, 'highest')}</td>
+                    <td>${fmt(hist.teamBrawl.highestRating, 'team-leaderboard', s.num, 'highest')}</td>
+                </tr>
+            `;
+        }).join('');
+
+        pastSeasonsEl.innerHTML = `
+            ${soloRows ? `
+            <p style="color:var(--accent-gold);font-weight:600;margin:0.5rem 0 0.25rem;">Solo</p>
+            <table class="leaderboard-table" style="margin-bottom:1rem;">
+                <thead><tr><th>Season</th><th style="text-align:right;">Rank</th><th>Rating</th><th style="text-align:right;">Rank</th><th>Highest Rating</th></tr></thead>
+                <tbody>${soloRows}</tbody>
+            </table>` : ''}
+            ${teamRows ? `
+            <p style="color:var(--accent-gold);font-weight:600;margin:0.5rem 0 0.25rem;">Team</p>
+            <table class="leaderboard-table">
+                <thead><tr><th>Season</th><th style="text-align:right;">Rank</th><th>Rating</th><th style="text-align:right;">Rank</th><th>Highest Rating</th></tr></thead>
+                <tbody>${teamRows}</tbody>
+            </table>` : ''}
+        `;
+    } else {
+        pastSeasonsSection.style.display = 'none';
     }
 
     modal.classList.add('active');

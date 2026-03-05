@@ -17,6 +17,7 @@ Setup:
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -143,6 +144,31 @@ def process_users(users_raw):
         for guild_tag, rep in guild_rep.items():
             if rep:
                 user_data[f"stats.guildReputation.{guild_tag}"] = rep
+
+        # Historical season data (stored under "historicalStats" with keys like "season1-2026-03-05")
+        season_pattern = re.compile(r"^season(\d+)-\d{4}-\d{2}-\d{2}$")
+        historical_stats = user.get("historicalStats", {}) or {}
+        for key, value in historical_stats.items():
+            if season_pattern.match(key) and isinstance(value, dict):
+                season_data = {}
+                brawl_hist = value.get("brawl", {}) or {}
+                if brawl_hist:
+                    season_data["brawl"] = {
+                        "rating": brawl_hist.get("rating", 0) or 0,
+                        "highestRating": brawl_hist.get("highestRating", 0) or 0,
+                        "brawls": brawl_hist.get("brawls", 0) or 0,
+                        "wins": brawl_hist.get("wins", 0) or 0,
+                    }
+                team_hist = value.get("teamBrawl", {}) or {}
+                if team_hist:
+                    season_data["teamBrawl"] = {
+                        "rating": team_hist.get("rating", 0) or 0,
+                        "highestRating": team_hist.get("highestRating", 0) or 0,
+                        "brawls": team_hist.get("brawls", 0) or 0,
+                        "wins": team_hist.get("wins", 0) or 0,
+                    }
+                if season_data:
+                    user_data[key] = season_data
 
         users_data.append(user_data)
 
@@ -324,6 +350,40 @@ def calculate_norm_stats(users_data):
     return ctf_norm_stats, brawl_norm_stats, len(ctf_players), len(brawl_players)
 
 
+def process_inventory(inventory_raw):
+    """Extract belt trophies from inventory documents.
+
+    inventory_raw: { userId: { "taunt": { uuid: { animationName, name, description, icon: {cdn}, ... } } } }
+    Returns: { userId: [ { name, description, iconUrl } ] }
+    """
+    belt_trophies = {}
+    for user_id, inv in inventory_raw.items():
+        if not inv:
+            continue
+        taunts = inv.get("taunt", {}) or {}
+        belts = []
+        for taunt in taunts.values():
+            if not isinstance(taunt, dict):
+                continue
+            if taunt.get("animationName") != "raiseBelt":
+                continue
+            if taunt.get("sku") == "bt-taunt-tossWeapon":
+                continue
+            icon = taunt.get("icon", {}) or {}
+            cdn = icon.get("cdn", "")
+            # Derive item name from taunt CDN URL, e.g. ".../taunt/beltsilver.png" -> "beltsilver"
+            import os as _os
+            item_name = _os.path.splitext(_os.path.basename(cdn))[0] if cdn else ""
+            icon_url = f"https://cdn.brawlerstavern.com/catalog/items/{item_name}/item_down.png" if item_name else cdn
+            belts.append({
+                "name": taunt.get("name", ""),
+                "iconUrl": icon_url,
+            })
+        if belts:
+            belt_trophies[user_id] = belts
+    return belt_trophies
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch Brawlers Tavern data from Firestore")
     parser.add_argument("--key", default="service-account.json", help="Path to Firebase service account key JSON")
@@ -345,6 +405,7 @@ def main():
     users_raw = fetch_collection(db, "users")
     guilds_raw = fetch_collection(db, "guilds")
     guild_members = fetch_guild_members(db, guilds_raw)
+    inventory_raw = fetch_collection(db, "inventory")
     print()
 
     # Process
@@ -352,10 +413,12 @@ def main():
     users_data = process_users(users_raw)
     guilds_data = process_guilds(guilds_raw, users_data, guild_members)
     ctf_norm, brawl_norm, ctf_count, brawl_count = calculate_norm_stats(users_data)
+    belt_trophies = process_inventory(inventory_raw)
     print(f"  {len(users_data)} users processed")
     print(f"  {len(guilds_data)} guilds processed")
     print(f"  {ctf_count} CTF-eligible players")
     print(f"  {brawl_count} Brawl-eligible players")
+    print(f"  {sum(len(v) for v in belt_trophies.values())} belt trophies across {len(belt_trophies)} players")
     print()
 
     # Save
@@ -367,6 +430,7 @@ def main():
         "guilds.json": guilds_data,
         "ctf_stats.json": ctf_norm,
         "brawl_stats.json": brawl_norm,
+        "belt_trophies.json": belt_trophies,
     }
 
     print("Writing files:")

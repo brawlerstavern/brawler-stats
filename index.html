@@ -17,14 +17,14 @@
 <body>
     <div class="header">
         <nav class="nav">
-            <button class="nav-btn active" onclick="showSection('solo-leaderboard')">Solo</button>
-            <button class="nav-btn" onclick="showSection('team-leaderboard')">Team</button>
-            <button class="nav-btn" onclick="showSection('ctf-leaderboard')">CTF</button>
-            <button class="nav-btn" onclick="showSection('traits-leaderboard')">Brawl Traits</button>
-            <button class="nav-btn" onclick="showSection('guild-leaderboard')">Guilds</button>
-            <button class="nav-btn" onclick="showSection('events-leaderboard')">Events</button>
-            <button class="nav-btn" onclick="showSection('general-leaderboard')">Misc</button>
-            <button class="nav-btn" onclick="showSection('brawlers')">All Brawlers</button>
+            <button class="nav-btn active" onclick="showSection('solo-leaderboard', event)">Solo</button>
+            <button class="nav-btn" onclick="showSection('team-leaderboard', event)">Team</button>
+            <button class="nav-btn" onclick="showSection('ctf-leaderboard', event)">CTF</button>
+            <button class="nav-btn" onclick="showSection('traits-leaderboard', event)">Brawl Traits</button>
+            <button class="nav-btn" onclick="showSection('guild-leaderboard', event)">Guilds</button>
+            <button class="nav-btn" onclick="showSection('events-leaderboard', event)">Events</button>
+            <button class="nav-btn" onclick="showSection('general-leaderboard', event)">Misc</button>
+            <button class="nav-btn" onclick="showSection('brawlers', event)">All Brawlers</button>
         </nav>
         <div class="header-logo">
             <img src="images/title-text-overlay-curved.png" alt="Brawlers Tavern">
@@ -34,13 +34,16 @@
     <div class="container">
         <!-- Solo Leaderboard -->
         <section id="solo-leaderboard" class="section active">
-            <h2 class="section-title">Solo Leaderboard</h2>
-            <div class="search-bar">
-                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'solo-table-container')">
-            </div>
-            <div class="ctf-tabs" id="solo-tabs">
-                <button class="ctf-tab active" onclick="showSoloTab('current')">Current</button>
-                <button class="ctf-tab" onclick="showSoloTab('highest')">Highest</button>
+            <h2 class="section-title" id="solo-leaderboard-title">Solo Leaderboard</h2>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.5rem;">
+                <div class="ctf-tabs" id="solo-tabs" style="flex-shrink:0;">
+                    <button class="ctf-tab active" onclick="showSoloTab('current')">Current</button>
+                    <button class="ctf-tab" onclick="showSoloTab('highest')">Highest</button>
+                </div>
+                <div style="flex:1; display:flex; justify-content:center;">
+                    <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'solo-table-container')" style="max-width:400px; width:100%;">
+                </div>
+                <div id="solo-season-dropdown" style="flex-shrink:0;"></div>
             </div>
             <div id="solo-table-container">
                 <div class="loading">Loading leaderboard...</div>
@@ -49,13 +52,16 @@
 
         <!-- Team Leaderboard -->
         <section id="team-leaderboard" class="section">
-            <h2 class="section-title">Team Leaderboard</h2>
-            <div class="search-bar">
-                <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'team-table-container')">
-            </div>
-            <div class="ctf-tabs" id="team-tabs">
-                <button class="ctf-tab active" onclick="showTeamTab('current')">Current</button>
-                <button class="ctf-tab" onclick="showTeamTab('highest')">Highest</button>
+            <h2 class="section-title" id="team-leaderboard-title">Team Leaderboard</h2>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.5rem;">
+                <div class="ctf-tabs" id="team-tabs" style="flex-shrink:0;">
+                    <button class="ctf-tab active" onclick="showTeamTab('current')">Current</button>
+                    <button class="ctf-tab" onclick="showTeamTab('highest')">Highest</button>
+                </div>
+                <div style="flex:1; display:flex; justify-content:center;">
+                    <input type="text" class="search-input" placeholder="Search players..." onkeyup="filterLeaderboard(this.value, 'team-table-container')" style="max-width:400px; width:100%;">
+                </div>
+                <div id="team-season-dropdown" style="flex-shrink:0;"></div>
             </div>
             <div id="team-table-container">
                 <div class="loading">Loading leaderboard...</div>
@@ -192,6 +198,10 @@
             </div>
             <div class="modal-body">
                 <div id="modal-stats" class="stats-grid"></div>
+                <div id="modal-trophies-section" class="traits-section" style="display:none;">
+                    <h3>Trophies</h3>
+                    <div id="modal-trophies" class="traits-grid"></div>
+                </div>
                 <div class="traits-section">
                     <h3>Combat Traits</h3>
                     <div id="modal-traits" class="traits-grid"></div>
@@ -207,6 +217,10 @@
                 <div id="modal-ctf-section" class="traits-section">
                     <h3>CTF Stats</h3>
                     <div id="modal-ctf" class="stats-grid"></div>
+                </div>
+                <div id="modal-past-seasons-section" class="traits-section" style="display:none;">
+                    <h3>Past Seasons</h3>
+                    <div id="modal-past-seasons"></div>
                 </div>
             </div>
         </div>

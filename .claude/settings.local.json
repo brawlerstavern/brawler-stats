@@ -20,7 +20,15 @@
       "Bash(git remote add:*)",
       "Bash(git push:*)",
       "WebFetch(domain:fonts.googleapis.com)",
-      "Bash(nslookup:*)"
+      "Bash(nslookup:*)",
+      "Bash(node --version:*)",
+      "Bash(npm install:*)",
+      "Bash(node screenshot.js:*)",
+      "Bash(powershell:*)",
+      "Bash(node -c:*)",
+      "Bash(node -e \"try { new Function\\(require\\(''fs''\\).readFileSync\\(''app.js'',''utf8''\\)\\) } catch\\(e\\) { console.log\\(e.message\\) }\")",
+      "Bash(node -e \"try { require\\(''fs''\\).readFileSync\\(''c:\\\\Users\\\\Adrian\\\\Desktop\\\\Brawler Stats\\\\app.js'', ''utf8''\\); new Function\\(require\\(''fs''\\).readFileSync\\(''c:\\\\Users\\\\Adrian\\\\Desktop\\\\Brawler Stats\\\\app.js'', ''utf8''\\)\\); console.log\\(''Syntax OK''\\); } catch\\(e\\) { console.log\\(e.message\\); }\")",
+      "Bash(node -e \"try { new Function\\(require\\(''fs''\\).readFileSync\\(''c:\\\\Users\\\\Adrian\\\\Desktop\\\\Brawler Stats\\\\app.js'', ''utf8''\\)\\); console.log\\(''Syntax OK''\\); } catch\\(e\\) { console.log\\(e.message\\); }\")"
     ]
   }
 }
