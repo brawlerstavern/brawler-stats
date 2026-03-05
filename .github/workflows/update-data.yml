@@ -1,9 +1,9 @@
 name: Update Data & Deploy
 
 on:
-  # Run every 24 hours at midnight UTC
+  # Run every day at 4 AM EST (9 AM UTC)
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 9 * * *"
   # Also deploy when code is pushed to main
   push:
     branches: [main]
